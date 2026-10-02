@@ -1,0 +1,237 @@
+package com.kibu.notes
+
+import android.content.Context
+import android.net.Uri
+import android.os.Looper
+import android.view.View
+import android.widget.ImageView
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.common.truth.Truth.assertThat
+import java.io.File
+import java.io.RandomAccessFile
+import java.security.MessageDigest
+import java.util.Locale
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Thumbnails: which files get one, and which way up.
+ *
+ * Native graphics, so the EXIF fixtures are decoded rather than stubbed.
+ */
+@RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class ThumbsTest {
+
+    private lateinit var context: Context
+
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        FixtureProvider.install()
+        Thumbs.resetForTests()
+        File(context.cacheDir, "thumbs").deleteRecursively()
+    }
+
+    // ---------------------------------------------------------------
+    // Which kinds get a preview at all
+    // ---------------------------------------------------------------
+
+    @Test
+    fun thingsWithAPictureInThemGetAThumbnail() {
+        assertThat(Thumbs.supported(FileKind.IMAGE, "jpg")).isTrue()
+        assertThat(Thumbs.supported(FileKind.IMAGE_WEB, "gif")).isTrue()
+        assertThat(Thumbs.supported(FileKind.PDF, "pdf")).isTrue()
+        assertThat(Thumbs.supported(FileKind.PLAYER, "mp4")).isTrue()
+    }
+
+    /**
+     * Audio is the exception inside PLAYER: there is no frame to grab, and a
+     * blank grey square says less than the AUD badge it would replace.
+     */
+    @Test
+    fun audioKeepsItsBadgeInsteadOfABlankFrame() {
+        listOf("mp3", "m4a", "flac", "wav", "ogg", "opus", "amr", "aac", "oga")
+            .forEach { assertThat(Thumbs.supported(FileKind.PLAYER, it)).isFalse() }
+    }
+
+    @Test
+    fun documentsAndTextKeepTheirBadges() {
+        listOf(
+            FileKind.DOCX, FileKind.PROSE, FileKind.XLSX, FileKind.PPTX,
+            FileKind.MD, FileKind.TEXT, FileKind.MODEL, FileKind.UNSUPPORTED,
+        ).forEach { assertThat(Thumbs.supported(it, "")).isFalse() }
+    }
+
+    /**
+     * Inside a zip: photos however they are packed, video only as a window, never a PDF. The
+     * fixture's photo is stored and its PDF compressed, so the stored cases are built here.
+     */
+    @Test
+    fun insideAZipOnlyWhatCanBeReadCheaplyGetsOne() {
+        val stored = EntryLocation(0, ZipReader.METHOD_STORED, 1, 1, 0)
+        val deflated = EntryLocation(0, ZipReader.METHOD_DEFLATED, 1, 1, 0)
+        val locked = EntryLocation(0, ZipReader.METHOD_STORED, 1, 1, 0, Lock.AES256)
+        assertThat(Thumbs.supportedInArchive(FileKind.IMAGE, "jpg", deflated)).isTrue()
+        assertThat(Thumbs.supportedInArchive(FileKind.IMAGE, "jpg", locked)).isTrue()
+        assertThat(Thumbs.supportedInArchive(FileKind.PLAYER, "mp4", stored)).isTrue()
+        assertThat(Thumbs.supportedInArchive(FileKind.PLAYER, "mp4", deflated)).isFalse()
+        assertThat(Thumbs.supportedInArchive(FileKind.PLAYER, "mp4", locked)).isFalse()
+        assertThat(Thumbs.supportedInArchive(FileKind.PLAYER, "mp3", stored)).isFalse()
+        assertThat(Thumbs.supportedInArchive(FileKind.PDF, "pdf", stored)).isFalse()
+    }
+
+    /** Every kind is decided one way or the other; none of them throws. */
+    @Test
+    fun everyKindHasAnAnswer() {
+        FileKind.entries.forEach { Thumbs.supported(it, "bin") }
+    }
+
+    // ---------------------------------------------------------------
+    // EXIF rotation
+    // ---------------------------------------------------------------
+
+    private fun rotationOf(fixture: String): Int {
+        val uri = FixtureProvider.uriFor(fixture)
+        return Thumbs.exifRotation(context.contentResolver, uri)
+    }
+
+    @Test
+    fun anUnrotatedPhotoIsLeftAlone() {
+        assertThat(rotationOf("exif-1.jpg")).isEqualTo(0)
+    }
+
+    @Test
+    fun theThreeQuarterTurnsAreRead() {
+        assertThat(rotationOf("exif-6.jpg")).isEqualTo(90)
+        assertThat(rotationOf("exif-3.jpg")).isEqualTo(180)
+        assertThat(rotationOf("exif-8.jpg")).isEqualTo(270)
+    }
+
+    /**
+     * Transpose and transverse are a rotation plus a mirror. Gander drops the
+     * mirror and keeps the rotation, which puts the photo the right way up
+     * even though it is not strictly what the tag asked for. A mirrored
+     * portrait is a far smaller wrong than a sideways one.
+     */
+    @Test
+    fun theMirroredOrientationsKeepTheirRotation() {
+        assertThat(rotationOf("exif-5.jpg")).isEqualTo(90)
+        assertThat(rotationOf("exif-7.jpg")).isEqualTo(270)
+    }
+
+    @Test
+    fun aPhotoWithNoExifIsNotRotated() {
+        assertThat(rotationOf("tiny.png")).isEqualTo(0)
+    }
+
+    /** Asked about something that is not an image at all. */
+    @Test
+    fun aNonImageIsNotRotated() {
+        assertThat(rotationOf("plain.txt")).isEqualTo(0)
+        assertThat(rotationOf("six-pages.pdf")).isEqualTo(0)
+    }
+
+    /**
+     * A provider that throws must give an upright photo, not a crash. This is
+     * called while binding a row, so it runs for every file on screen.
+     */
+    @Test
+    fun aProviderThatThrowsGivesNoRotation() {
+        val uri = FixtureProvider.uriFor(FixtureProvider.BROKEN)
+        assertThat(Thumbs.exifRotation(context.contentResolver, uri)).isEqualTo(0)
+    }
+
+    // ---------------------------------------------------------------
+    // The disk cache
+    // ---------------------------------------------------------------
+
+    /** The same key derivation Thumbs uses, so the file can be found. */
+    private fun cacheFileFor(uriString: String): File {
+        val key = MessageDigest.getInstance("MD5")
+            .digest(uriString.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        return File(File(context.cacheDir, "thumbs"), "$key.png")
+    }
+
+    @Test
+    fun evictingAFileRemovesItsCachedThumbnail() {
+        val uri = FixtureProvider.uriFor("exif-1.jpg").toString()
+        val cached = cacheFileFor(uri).apply {
+            parentFile?.mkdirs()
+            writeBytes(Fixtures.bytes("tiny.png"))
+        }
+        assertThat(cached.exists()).isTrue()
+
+        Thumbs.evict(context, uri)
+
+        assertThat(cached.exists()).isFalse()
+    }
+
+    @Test
+    fun evictingSomethingNeverCachedIsHarmless() {
+        Thumbs.evict(context, "content://elsewhere/never-seen")
+    }
+
+    /** Loads [uri]'s thumbnail the way a row does, and waits for it to be drawn. */
+    private fun loadAndWait(uri: Uri) {
+        // Hidden, as a row's is until its picture arrives: a new ImageView starts out visible,
+        // and waiting for that would wait for nothing
+        val into = ImageView(context).apply { visibility = View.GONE }
+        val badge = View(context)
+        Thumbs.load(context, uri, "png", into, badge)
+        // Real time, not SystemClock: Robolectric's clock stands still unless a test moves it,
+        // so a deadline on that one never arrives and a thumbnail that never comes hangs the run
+        // rather than failing it.
+        val deadline = System.nanoTime() + 10_000_000_000
+        while (into.visibility != View.VISIBLE) {
+            check(System.nanoTime() < deadline) { "no thumbnail for $uri" }
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(20)
+        }
+    }
+
+    private fun cached(): List<String> =
+        File(context.cacheDir, "thumbs").listFiles().orEmpty().map { it.name }
+
+    /** The control for the next: a photo on the phone is kept on disk, so the check can see one. */
+    @Test
+    fun aPhotoOnThePhoneIsKeptOnDisk() {
+        FixtureProvider.install()
+        val uri = FixtureProvider.uriFor("tiny.png")
+        loadAndWait(uri)
+        assertThat(cached()).containsExactly(cacheFileFor(uri.toString()).name)
+    }
+
+    /**
+     * A photo inside a zip is drawn and never written: nothing in a zip reaches storage, and a
+     * thumbnail on disk would be a copy of the photo, only smaller.
+     */
+    @Test
+    fun aPhotoInsideAZipIsNeverKeptOnDisk() {
+        FixtureProvider.install()
+        Robolectric.buildContentProvider(ArchiveProvider::class.java).create(ArchiveProvider.authority(context))
+        val raf = RandomAccessFile(Fixtures.file("archive.zip"), "r")
+        val entry = ZipSource(raf.channel, 0, raf.length(), raf).use {
+            ZipReader.entries(it, Locale.US).single { e -> e.path == "photos/tiny.png" }
+        }
+        loadAndWait(ArchiveProvider.uriFor(context, FixtureProvider.uriFor("archive.zip"), entry))
+        assertThat(cached()).isEmpty()
+    }
+
+    /**
+     * Thumbnails live in the cache directory, which Android is free to empty
+     * at any time. Nothing here may be the only copy of anything.
+     */
+    @Test
+    fun thumbnailsAreKeptOnlyInTheCacheDirectory() {
+        val uri = FixtureProvider.uriFor("exif-1.jpg").toString()
+        assertThat(cacheFileFor(uri).canonicalPath)
+            .startsWith(context.cacheDir.canonicalPath)
+    }
+}

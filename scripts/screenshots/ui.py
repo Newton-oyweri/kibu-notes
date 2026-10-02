@@ -30,7 +30,7 @@ ADB = _adb()
 # The debug build, because seeding a realistic recents list needs `run-as`, which
 # only works on a debuggable package. It is the same code and the same look as
 # release; only the applicationId suffix differs.
-PKG = "com.arjun.gander.debug"
+PKG = "com.kibu.notes.debug"
 
 # Captures land where render-screenshot-captions.sh expects to find them.
 VERSION = os.environ.get("GANDER_SHOT_VERSION", "v1.9")
@@ -140,7 +140,7 @@ def texts():
 
 
 def launch():
-    sh("shell", f"am start -n {PKG}/com.arjun.gander.MainActivity")
+    sh("shell", f"am start -n {PKG}/com.kibu.notes.MainActivity")
     time.sleep(2.2)
 
 

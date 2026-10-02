@@ -370,7 +370,7 @@ class Harness:
         ).stdout.strip().splitlines()
         java, classpath = lines[-2], lines[-1]
         # A phone's heap, near enough: 256 MB is what a mid-range one gives an app
-        self.command = [java, "-Xmx256m", "-cp", classpath, "com.arjun.gander.ZipFuzz"]
+        self.command = [java, "-Xmx256m", "-cp", classpath, "com.kibu.notes.ZipFuzz"]
         self.err = err
         self.start()
 

@@ -41,7 +41,7 @@ import layers
 from timeline import Timeline
 
 ADB = pathlib.Path.home() / "Library/Android/sdk/platform-tools/adb"
-PKG = "com.arjun.gander"
+PKG = "com.kibu.notes"
 OUT = pathlib.Path(__file__).parent / "out" / "takes"
 
 # How much more resolution to render the proof at. 3x on a 1080-wide phone gives a 3240 px

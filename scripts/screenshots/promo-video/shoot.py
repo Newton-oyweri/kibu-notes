@@ -15,7 +15,7 @@ costs 2-5 s and inside a clip that is dead air. Two recorder backends:
 import os, sys, time, subprocess
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "scripts", "screenshots"))
 import ui
-ui.PKG = "com.arjun.gander"
+ui.PKG = "com.kibu.notes"
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(HERE, "raw")
 ADB = ui.ADB
@@ -162,12 +162,12 @@ def beat_about():
 
 def beat_appinfo():
     home()
-    adb("shell", "am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.arjun.gander")
+    adb("shell", "am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.kibu.notes")
     time.sleep(3.5); px, py = locate("Permissions", exact=True, min_y=300)
     ui.back(0.6); home(); time.sleep(0.5)               # Settings stays warm behind Gander
     with Rec("appinfo") as r:
         time.sleep(0.5); r.mark("launch")
-        adb("shell", "am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.arjun.gander")
+        adb("shell", "am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.kibu.notes")
         time.sleep(2.4); r.mark("tap permissions"); tap(px, py)
         time.sleep(3.0)
     ui.back(0.5); ui.back(0.5); home()

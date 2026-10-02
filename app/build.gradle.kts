@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.arjun.gander"
+    namespace = "com.kibu.notes"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.arjun.gander"
+        applicationId = "com.kibu.notes"
         minSdk = 26
         targetSdk = 36
         versionCode = 21

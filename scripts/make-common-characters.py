@@ -100,7 +100,7 @@ def main() -> int:
     def wrapped(text, width=40):
         return "\n".join(f'        "{text[i:i + width]}" +' for i in range(0, len(text), width))[:-2]
 
-    OUT.write_text(f'''package com.arjun.gander
+    OUT.write_text(f'''package com.kibu.notes
 
 /**
  * The Hangul syllables and hanzi that Korean and Chinese are mostly written in, commonest

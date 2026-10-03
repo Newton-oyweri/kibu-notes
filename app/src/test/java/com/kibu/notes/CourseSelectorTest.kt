@@ -1,6 +1,7 @@
 package com.kibu.notes
 
 import android.content.Context
+import android.view.ContextThemeWrapper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -15,7 +16,10 @@ import org.robolectric.shadows.ShadowLooper
 @RunWith(AndroidJUnit4::class)
 class CourseSelectorTest {
 
-    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val context: Context = ContextThemeWrapper(
+        ApplicationProvider.getApplicationContext(),
+        R.style.Theme_Gander
+    )
 
     private class FakeSupabaseRepository : SupabaseRepository() {
         var throwError = false

@@ -1,14 +1,20 @@
 package com.kibu.notes
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kibu.notes.data.models.AcademicUnit
 import com.kibu.notes.data.models.Programme
 import com.kibu.notes.data.models.ProgrammeUnit
 import com.kibu.notes.data.models.Resource
 import com.kibu.notes.data.models.School
 import com.google.common.truth.Truth.assertThat
+import com.kibu.notes.data.SupabaseRepository
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.serialization.json.Json
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class SupabaseDataModelsTest {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -122,5 +128,22 @@ class SupabaseDataModelsTest {
         assertThat(resource.fileSize).isEqualTo(204800L)
         assertThat(resource.mimeType).isEqualTo("application/pdf")
         assertThat(resource.downloadsCount).isEqualTo(42)
+    }
+
+    @Test
+    fun localResourceFileAndDownloadStatus() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repository = SupabaseRepository()
+        val resource = Resource(id = "res-test", fileName = "test_note.pdf")
+
+        val localFile = repository.getLocalResourceFile(context, resource)
+        assertThat(localFile.name).isEqualTo("res-test_test_note.pdf")
+        assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
+
+        localFile.writeText("sample pdf content")
+        assertThat(repository.isResourceDownloaded(context, resource)).isTrue()
+
+        localFile.delete()
+        assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
     }
 }

@@ -4,7 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,18 +15,26 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import android.content.res.ColorStateList
-import android.graphics.Typeface
-import android.view.Gravity
-import android.widget.LinearLayout
-import android.widget.ScrollView
+import com.kibu.notes.data.SupabaseRepository
+import com.kibu.notes.data.models.Resource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.google.android.material.button.MaterialButton
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
@@ -34,6 +44,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
@@ -41,6 +52,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
@@ -71,6 +83,10 @@ class MainActivity : AppCompatActivity() {
     lateinit var foldersList: RecyclerView
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
+
+    @VisibleForTesting
+    internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
+    private var myUnitsJob: Job? = null
 
     /**
      * The last "Removed" toast, kept only so the next one can cancel it.
@@ -517,6 +533,7 @@ class MainActivity : AppCompatActivity() {
             viewPager.visibility = View.VISIBLE
             list.visibility = View.GONE
             fab.show()
+            loadMyUnits()
         } else {
             selectedProgramCard.visibility = View.GONE
             tabLayout.visibility = View.GONE
@@ -726,7 +743,313 @@ class MainActivity : AppCompatActivity() {
         override fun getItemViewType(position: Int): Int = position
     }
 
+    private fun loadMyUnits() {
+        val container = findViewById<ViewGroup>(R.id.myUnitsContainer) ?: return
+        val selectedCourseName = Settings.getSelectedCourse(this)
 
+        container.removeAllViews()
+
+        if (selectedCourseName.isNullOrEmpty()) {
+            val emptyLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(48, 64, 48, 64)
+                addView(TextView(context).apply {
+                    text = getString(R.string.no_course_selected)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+                    gravity = Gravity.CENTER
+                })
+                addView(MaterialButton(context).apply {
+                    text = getString(R.string.select_a_course)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 24 }
+                    setOnClickListener {
+                        CourseSelector.showDialog(this@MainActivity) {
+                            render()
+                        }
+                    }
+                })
+            }
+            container.addView(emptyLayout)
+            return
+        }
+
+        val loadingView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(48, 64, 48, 64)
+            addView(ProgressBar(context).apply { isIndeterminate = true })
+            addView(TextView(context).apply {
+                text = getString(R.string.loading_units_and_notes)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                setPadding(0, 24, 0, 0)
+            })
+        }
+        container.addView(loadingView)
+
+        myUnitsJob?.cancel()
+        myUnitsJob = CoroutineScope(Dispatchers.Main).launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val programmes = supabaseRepository.getProgrammes()
+                    val prog = programmes.find {
+                        it.title.equals(selectedCourseName, ignoreCase = true) ||
+                        it.code.equals(selectedCourseName, ignoreCase = true)
+                    } ?: programmes.find { it.title.contains(selectedCourseName, ignoreCase = true) }
+
+                    if (prog == null) return@withContext null
+
+                    val programmeUnits = supabaseRepository.getProgrammeUnits(prog.id)
+                    val allUnitsMap = supabaseRepository.getUnits().associateBy { it.id }
+                    val allResourcesMap = supabaseRepository.getAllResources().groupBy { it.unitId }
+
+                    // Group by (academicYear, semester)
+                    val grouped = programmeUnits.groupBy { Pair(it.academicYear, it.semester) }
+                        .toSortedMap(compareBy({ it.first }, { it.second }))
+
+                    val items = grouped.mapValues { (_, pus) ->
+                        pus.mapNotNull { pu ->
+                            val unit = allUnitsMap[pu.unitId]
+                            if (unit != null) {
+                                val resources = allResourcesMap[unit.id].orEmpty()
+                                Pair(unit, resources)
+                            } else null
+                        }
+                    }
+                    Pair(prog, items)
+                }
+            }.getOrNull()
+
+            container.removeAllViews()
+
+            if (result == null) {
+                val errorLayout = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(48, 64, 48, 64)
+                    addView(TextView(context).apply {
+                        text = getString(R.string.failed_to_load_units)
+                        setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                        setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorError))
+                    })
+                    addView(MaterialButton(context).apply {
+                        text = getString(R.string.retry)
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = 24 }
+                        setOnClickListener { loadMyUnits() }
+                    })
+                }
+                container.addView(errorLayout)
+                return@launch
+            }
+
+            val (prog, itemsGrouped) = result
+
+            if (itemsGrouped.isEmpty()) {
+                val emptyView = TextView(this@MainActivity).apply {
+                    text = getString(R.string.no_units_found, prog.title)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                    gravity = Gravity.CENTER
+                    setPadding(48, 64, 48, 64)
+                }
+                container.addView(emptyView)
+                return@launch
+            }
+
+            itemsGrouped.forEach { (yearSem, unitList) ->
+                val (year, sem) = yearSem
+
+                val headerText = TextView(this@MainActivity).apply {
+                    text = getString(R.string.year_semester_header, year, sem)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+                    setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
+                    setTypeface(null, Typeface.BOLD)
+                    setPadding(16, 24, 16, 12)
+                }
+                container.addView(headerText)
+
+                unitList.forEach { (unit, resList) ->
+                    val unitCard = MaterialCardView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(16, 8, 16, 16)
+                        }
+                        cardElevation = 0f
+                        strokeWidth = (1 * resources.displayMetrics.density).toInt()
+                        setStrokeColor(ColorStateList.valueOf(
+                            MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
+                        ))
+                    }
+
+                    val unitLayout = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(16, 16, 16, 16)
+                    }
+
+                    val unitTitle = TextView(this@MainActivity).apply {
+                        text = if (unit.code.isNotEmpty()) "${unit.code} - ${unit.title}" else unit.title
+                        setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface))
+                    }
+                    unitLayout.addView(unitTitle)
+
+                    if (resList.isEmpty()) {
+                        val noNotesText = TextView(this@MainActivity).apply {
+                            text = getString(R.string.no_notes_for_unit)
+                            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+                            setPadding(0, 8, 0, 0)
+                        }
+                        unitLayout.addView(noNotesText)
+                    } else {
+                        resList.forEach { res ->
+                            val resRow = createResourceRowView(res)
+                            unitLayout.addView(resRow)
+                        }
+                    }
+
+                    unitCard.addView(unitLayout)
+                    container.addView(unitCard)
+                }
+            }
+        }
+    }
+
+    private fun createResourceRowView(res: Resource): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 12, 0, 12)
+        }
+
+        val iconView = TextView(this).apply {
+            text = when (res.resourceType.lowercase(Locale.getDefault())) {
+                "past_paper" -> "📝"
+                "topic_note" -> "📄"
+                "summary" -> "📌"
+                "syllabus" -> "📋"
+                "assignment" -> "✏️"
+                else -> "📄"
+            }
+            textSize = 20f
+            setPadding(0, 0, 16, 0)
+        }
+        row.addView(iconView)
+
+        val infoLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val titleView = TextView(this).apply {
+            text = res.title.ifEmpty { res.fileName }
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface))
+            setTypeface(null, Typeface.BOLD)
+        }
+        infoLayout.addView(titleView)
+
+        val subtitleParts = mutableListOf<String>()
+        if (res.resourceType.isNotEmpty()) {
+            subtitleParts += res.resourceType.replace("_", " ").replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+            }
+        }
+        if (res.fileSize > 0) {
+            subtitleParts += Formatter.formatShortFileSize(this, res.fileSize)
+        }
+        if (res.examYear != null && res.examYear > 0) {
+            subtitleParts += "Exam: ${res.examYear}"
+        }
+
+        if (subtitleParts.isNotEmpty()) {
+            val subView = TextView(this).apply {
+                text = subtitleParts.joinToString(" • ")
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+            }
+            infoLayout.addView(subView)
+        }
+
+        row.addView(infoLayout)
+
+        val actionFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        fun updateActionState() {
+            actionFrame.removeAllViews()
+
+            val downloaded = supabaseRepository.isResourceDownloaded(this@MainActivity, res)
+
+            if (downloaded) {
+                val openBtn = MaterialButton(this@MainActivity).apply {
+                    text = getString(R.string.open_file_action)
+                    setIconResource(R.drawable.ic_check)
+                    iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+                    setBackgroundColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondaryContainer))
+                    setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSecondaryContainer))
+                    iconTint = ColorStateList.valueOf(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSecondaryContainer))
+                    strokeWidth = 0
+                    setOnClickListener {
+                        val file = supabaseRepository.getLocalResourceFile(this@MainActivity, res)
+                        openInViewer(Uri.fromFile(file))
+                    }
+                }
+                actionFrame.addView(openBtn)
+            } else {
+                val downloadBtn = MaterialButton(this@MainActivity).apply {
+                    text = getString(R.string.download)
+                    setIconResource(R.drawable.ic_down)
+                    iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+                    setOnClickListener {
+                        actionFrame.removeAllViews()
+                        val progressView = LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER
+                            setPadding(16, 8, 16, 8)
+                            addView(ProgressBar(this@MainActivity).apply {
+                                isIndeterminate = true
+                                layoutParams = LinearLayout.LayoutParams(48, 48)
+                            })
+                        }
+                        actionFrame.addView(progressView)
+
+                        CoroutineScope(Dispatchers.Main).launch {
+                            val downloadedFile = runCatching {
+                                supabaseRepository.downloadResource(this@MainActivity, res)
+                            }.getOrNull()
+
+                            if (downloadedFile != null && downloadedFile.exists()) {
+                                Toast.makeText(this@MainActivity, "Downloaded ${res.title}", Toast.LENGTH_SHORT).show()
+                                updateActionState()
+                                openInViewer(Uri.fromFile(downloadedFile))
+                            } else {
+                                Toast.makeText(this@MainActivity, getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
+                                updateActionState()
+                            }
+                        }
+                    }
+                }
+                actionFrame.addView(downloadBtn)
+            }
+        }
+
+        updateActionState()
+        row.addView(actionFrame)
+
+        return row
+    }
 
     override fun onDestroy() {
         // Anything already queued still runs to completion and the thread ends with it,

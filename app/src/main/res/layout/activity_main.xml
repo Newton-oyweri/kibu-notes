@@ -164,15 +164,18 @@
             android:fillViewport="true">
 
             <LinearLayout
+                android:id="@+id/myUnitsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
+                android:clipToPadding="false"
                 android:orientation="vertical"
-                android:padding="32dp">
+                android:paddingBottom="88dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="32dp"
                     android:gravity="center"
                     android:text="@string/tab_my_units"
                     android:textAppearance="?attr/textAppearanceHeadlineSmall" />
@@ -180,6 +183,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center"
                     android:layout_marginTop="16dp"
                     android:gravity="center"
                     android:text="@string/my_units_placeholder"

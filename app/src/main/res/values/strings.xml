@@ -10,6 +10,18 @@
     <string name="tab_my_units">My Units</string>
     <string name="tab_recent_files">Recent Files</string>
     <string name="tab_folders">Folders</string>
+    <string name="loading_units_and_notes">Loading units and notes…</string>
+    <string name="failed_to_load_units">Failed to load units from database</string>
+    <string name="no_course_selected">No course or program selected yet.</string>
+    <string name="select_a_course">Select a Course</string>
+    <string name="no_units_found">No units found for %1$s</string>
+    <string name="no_notes_for_unit">No study materials available yet</string>
+    <string name="year_semester_header">Year %1$d, Semester %2$d</string>
+    <string name="download">Download</string>
+    <string name="downloading">Downloading…</string>
+    <string name="downloaded">Downloaded</string>
+    <string name="open_file_action">Open</string>
+    <string name="download_failed">Failed to download file. Please try again.</string>
     <!-- The long form, kept for the About dialog, which is where someone who wants the
          detail goes looking. The first run gets welcome_headline instead. -->
     <string name="main_subtitle">Open and view documents, spreadsheets, slides and photos. Everything renders on your phone, nothing is uploaded.</string>

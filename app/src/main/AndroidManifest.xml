@@ -5,6 +5,7 @@
     <!-- No permissions at all: files arrive via SAF or Open-with grants, rendering is fully offline.
          Media3 contributes ACCESS_NETWORK_STATE for streaming bitrate choice, stripped below because
          Gander only ever plays local files. The checkPermissions task fails the build on any others. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />

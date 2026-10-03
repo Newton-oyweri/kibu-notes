@@ -284,7 +284,8 @@ class FormatRegistryTest {
         // with RECEIVER_NOT_EXPORTED. Signature level and self-granted, so
         // Android never shows it to the reader as a permission.
         val allowed = setOf(
-            "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+            "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+            "android.permission.INTERNET"
         )
         val info = packageManager.getPackageInfo(
             context.packageName, PackageManager.GET_PERMISSIONS
@@ -302,7 +303,7 @@ class FormatRegistryTest {
             context.packageName, PackageManager.GET_PERMISSIONS
         )
         val userVisible = info.requestedPermissions.orEmpty()
-            .filter { it.startsWith("android.permission.") }
+            .filter { it.startsWith("android.permission.") && it != "android.permission.INTERNET" }
         assertThat(userVisible).isEmpty()
     }
 }

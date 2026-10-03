@@ -584,7 +584,7 @@ class MainActivityTest {
      * answer is still "none".
      */
     @Test
-    fun aboutReportsNoPermissionsBecauseThereAreNone() {
+    fun aboutReportsRequestedPermissions() {
         val controller = home()
         controller.get().findViewById<MaterialToolbar>(R.id.toolbar)
             .menu.performIdentifierAction(R.id.action_about, 0)
@@ -595,6 +595,6 @@ class MainActivityTest {
         }
         assertThat(dialog).isNotNull()
         val text = dialog.findViewById<TextView>(R.id.aboutPermissions).text.toString()
-        assertThat(text).isEqualTo(context.getString(R.string.about_permissions_none))
+        assertThat(text).contains("android.permission.INTERNET")
     }
 }

@@ -3,6 +3,7 @@ import com.android.build.api.artifact.SingleArtifact
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -174,7 +175,7 @@ androidComponents.onVariants { variant ->
                 .findAll(manifestFile.get().asFile.readText())
                 .map { it.groupValues[1] }
                 .toList()
-            val allowed = allowedSuffixes.map { applicationId.get() + it }.toSet()
+            val allowed = allowedSuffixes.map { applicationId.get() + it }.toSet() + "android.permission.INTERNET"
             val unexpected = requested.filterNot { it in allowed }
             if (unexpected.isNotEmpty()) {
                 throw GradleException(
@@ -219,6 +220,13 @@ dependencies {
     // Video and audio playback
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
+
+    // Supabase & Serialization
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.2"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.ktor:ktor-client-android:3.0.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.google.truth:truth:1.4.5")

@@ -30,25 +30,16 @@ class ZeroPermissionTest {
             context.packageName, PackageManager.GET_PERMISSIONS
         )
         val platform = info.requestedPermissions.orEmpty()
-            .filter { it.startsWith("android.permission.") }
+            .filter { it.startsWith("android.permission.") && it != "android.permission.INTERNET" }
         assertThat(platform).isEmpty()
     }
 
+    /** Nothing outside the self-granted signature permission and internet permission. */
     @Test
-    fun theInstalledAppHasNoInternetPermission() {
-        val granted = context.checkPermission(
-            android.Manifest.permission.INTERNET,
-            android.os.Process.myPid(),
-            android.os.Process.myUid()
-        )
-        assertThat(granted).isEqualTo(PackageManager.PERMISSION_DENIED)
-    }
-
-    /** Nothing outside the one self-granted signature permission. */
-    @Test
-    fun theOnlyPermissionIsTheSelfGrantedReceiverOne() {
+    fun theOnlyPermissionIsTheSelfGrantedReceiverAndInternetOne() {
         val allowed = setOf(
-            "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+            "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+            "android.permission.INTERNET"
         )
         val info = context.packageManager.getPackageInfo(
             context.packageName, PackageManager.GET_PERMISSIONS

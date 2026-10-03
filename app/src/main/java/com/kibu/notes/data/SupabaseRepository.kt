@@ -8,19 +8,19 @@ import com.kibu.notes.data.models.School
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 
-class SupabaseRepository {
+open class SupabaseRepository {
 
-    private val client = Supabase.client
+    private val client by lazy { Supabase.client }
 
-    suspend fun getSchools(): List<School> {
+    open suspend fun getSchools(): List<School> {
         return client.from("schools").select().decodeList()
     }
 
-    suspend fun getProgrammes(): List<Programme> {
+    open suspend fun getProgrammes(): List<Programme> {
         return client.from("programmes").select().decodeList()
     }
 
-    suspend fun getProgrammesBySchool(schoolId: String): List<Programme> {
+    open suspend fun getProgrammesBySchool(schoolId: String): List<Programme> {
         return client.from("programmes")
             .select {
                 filter {
@@ -30,11 +30,11 @@ class SupabaseRepository {
             .decodeList()
     }
 
-    suspend fun getUnits(): List<AcademicUnit> {
+    open suspend fun getUnits(): List<AcademicUnit> {
         return client.from("units").select().decodeList()
     }
 
-    suspend fun getProgrammeUnits(programmeId: String): List<ProgrammeUnit> {
+    open suspend fun getProgrammeUnits(programmeId: String): List<ProgrammeUnit> {
         return client.from("programme_units")
             .select {
                 filter {
@@ -44,7 +44,7 @@ class SupabaseRepository {
             .decodeList()
     }
 
-    suspend fun getResourcesByUnit(unitId: String): List<Resource> {
+    open suspend fun getResourcesByUnit(unitId: String): List<Resource> {
         return client.from("resources")
             .select {
                 filter {
@@ -54,11 +54,11 @@ class SupabaseRepository {
             .decodeList()
     }
 
-    suspend fun getAllResources(): List<Resource> {
+    open suspend fun getAllResources(): List<Resource> {
         return client.from("resources").select().decodeList()
     }
 
-    suspend fun downloadResourceFile(bucket: String, filePath: String): ByteArray {
+    open suspend fun downloadResourceFile(bucket: String, filePath: String): ByteArray {
         return client.storage.from(bucket).downloadPublic(filePath)
     }
 }

@@ -4,6 +4,9 @@
     <string name="shared_student_notes">Shared student notes</string>
     <string name="selected_program">Selected Program / Course</string>
     <string name="my_course_program">My course/program</string>
+    <string name="loading_programs">Loading programs…</string>
+    <string name="failed_to_load_programs">Failed to load programs from database</string>
+    <string name="retry">Retry</string>
     <string name="tab_my_units">My Units</string>
     <string name="tab_recent_files">Recent Files</string>
     <string name="tab_folders">Folders</string>
@@ -42,8 +45,9 @@
     <string name="entry_locked_unsupported">This file is locked in a way Kibu Notes can\'t unlock</string>
     <string name="entry_unsupported">Packed in a format Kibu Notes can\'t unpack</string>
     <string name="entry_unsupported_open">This file is packed in a way Kibu Notes can\'t read</string>
-    <!-- Asking for a file's password, in the words the PDF viewer asks for a PDF's -->
+    <!-- Asking for a file's password, in the words the PDF viewer asks for a PDF's -->ea
     <string name="password_title">This file is password protected</string>
+
     <string name="password_message">Enter its password to open it.</string>
     <string name="password">Password</string>
     <string name="password_open">Open</string>

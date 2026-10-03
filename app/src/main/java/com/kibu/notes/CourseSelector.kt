@@ -7,75 +7,130 @@ import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.kibu.notes.data.SupabaseRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object CourseSelector {
 
     data class CourseGroup(val school: String, val courses: List<String>)
 
-    val COURSE_GROUPS = listOf(
-        CourseGroup(
-            "School of Education",
-            listOf(
-                "Bachelor of Education (Arts)",
-                "Bachelor of Education (Science)",
-                "Bachelor of Education in Early Childhood Education"
+    fun showDialog(
+        context: Context,
+        repository: SupabaseRepository = SupabaseRepository(),
+        onSelected: (String) -> Unit
+    ) {
+        val rootLayout = FrameLayout(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
-        ),
-        CourseGroup(
-            "Faculty of Arts and Social Sciences",
-            listOf(
-                "Bachelor of Social Work",
-                "Bachelor of Criminology and Criminal Justice",
-                "Bachelor of Journalism and Mass Communication"
-            )
-        ),
-        CourseGroup(
-            "Faculty of Science",
-            listOf(
-                "Bachelor of Science (Mathematics)",
-                "Bachelor of Science in Chemistry",
-                "Bachelor of Science in Physics",
-                "Bachelor of Science in Biology",
-                "Bachelor of Science (Agricultural Education and Extension)",
-                "Bachelor of Science in Agriculture and Biotechnology",
-                "Bachelor of Science in Agriculture Economics and Resource Management",
-                "Bachelor of Science (Bio-resource Conservation and Management)"
-            )
-        ),
-        CourseGroup(
-            "School of Computing and Informatics",
-            listOf(
-                "Bachelor of Science in Computer Science",
-                "Bachelor of Science in Information Technology"
-            )
-        ),
-        CourseGroup(
-            "School of Business and Economics",
-            listOf(
-                "Bachelor of Commerce",
-                "Bachelor of Science in Cooperative and Entrepreneurship Management",
-                "Bachelor of Business Management"
-            )
-        ),
-        CourseGroup(
-            "School of Nursing",
-            listOf(
-                "Bachelor of Science in Nursing"
-            )
-        )
-    )
+            setPadding(48, 24, 48, 32)
+        }
 
-    fun populateContainer(context: Context, container: ViewGroup, onSelected: (String) -> Unit) {
+        val loadingLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, 48, 0, 48)
+            addView(ProgressBar(context).apply {
+                isIndeterminate = true
+            })
+            addView(TextView(context).apply {
+                text = context.getString(R.string.loading_programs)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+                setPadding(0, 24, 0, 0)
+            })
+        }
+        rootLayout.addView(loadingLayout)
+
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.my_course_program)
+            .setView(rootLayout)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+
+        fun loadData() {
+            rootLayout.removeAllViews()
+            rootLayout.addView(loadingLayout)
+
+            CoroutineScope(Dispatchers.Main).launch {
+                val groups = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val schools = repository.getSchools()
+                        val programmes = repository.getProgrammes()
+                        schools.map { school ->
+                            CourseGroup(
+                                school = school.name,
+                                courses = programmes.filter { it.schoolId == school.id }.map { it.title }
+                            )
+                        }.filter { it.courses.isNotEmpty() }
+                    }
+                }.getOrNull()
+
+                rootLayout.removeAllViews()
+                if (!groups.isNullOrEmpty()) {
+                    val scrollView = ScrollView(context).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        isFillViewport = true
+                    }
+                    val container = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                    }
+                    scrollView.addView(container)
+
+                    populateContainer(context, container, groups) { course ->
+                        dialog.dismiss()
+                        onSelected(course)
+                    }
+                    rootLayout.addView(scrollView)
+                } else {
+                    val errorLayout = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        setPadding(0, 32, 0, 32)
+                        addView(TextView(context).apply {
+                            text = context.getString(R.string.failed_to_load_programs)
+                            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorError))
+                        })
+                        addView(MaterialButton(context).apply {
+                            text = context.getString(R.string.retry)
+                            setOnClickListener { loadData() }
+                        })
+                    }
+                    rootLayout.addView(errorLayout)
+                }
+            }
+        }
+
+        dialog.show()
+        loadData()
+    }
+
+    private fun populateContainer(
+        context: Context,
+        container: ViewGroup,
+        groups: List<CourseGroup>,
+        onSelected: (String) -> Unit
+    ) {
         container.removeAllViews()
         val selectedCourse = Settings.getSelectedCourse(context)
-        COURSE_GROUPS.forEach { group ->
+        groups.forEach { group ->
             val header = TextView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -124,29 +179,5 @@ object CourseSelector {
                 container.addView(button)
             }
         }
-    }
-
-    fun showDialog(context: Context, onSelected: (String) -> Unit) {
-        val scrollView = ScrollView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            isFillViewport = true
-        }
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 32)
-        }
-        scrollView.addView(container)
-
-        val dialog = MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.my_course_program)
-            .setView(scrollView)
-            .setNegativeButton(android.R.string.cancel, null)
-            .create()
-
-        populateContainer(context, container) { course ->
-            dialog.dismiss()
-            onSelected(course)
-        }
-        dialog.show()
     }
 }

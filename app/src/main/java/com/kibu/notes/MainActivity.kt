@@ -17,6 +17,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import android.content.res.ColorStateList
+import android.graphics.Typeface
+import android.view.Gravity
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import com.google.android.material.button.MaterialButton
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -26,11 +32,14 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -44,8 +53,6 @@ class MainActivity : AppCompatActivity() {
      * and "nothing has ever been opened" both produce no rows and only the second one
      * replaces the screen.
      */
-    private data class Screen(val rows: List<Row>, val welcome: Boolean = false)
-
     private data class Crumb(val treeUri: Uri, val docId: String, val label: String)
 
     private val stack = ArrayDeque<Crumb>()
@@ -54,8 +61,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lockup: View
     private lateinit var progress: LinearProgressIndicator
     private lateinit var list: RecyclerView
-    private lateinit var welcome: View
+    private lateinit var myUnitsView: View
     private lateinit var fab: ExtendedFloatingActionButton
+    private lateinit var tabLayout: TabLayout
+    lateinit var viewPager: ViewPager2
+    internal val recentsAdapter = RowAdapter()
+    internal val foldersAdapter = RowAdapter()
+    lateinit var recentsList: RecyclerView
+    lateinit var foldersList: RecyclerView
+    private lateinit var selectedProgramCard: View
+    private lateinit var selectedProgramText: TextView
 
     /**
      * The last "Removed" toast, kept only so the next one can cancel it.
@@ -150,6 +165,12 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.action_rate -> { openPlayListing(); true }
                 R.id.action_share_app -> { shareGander(); true }
+                R.id.action_select_course -> {
+                    CourseSelector.showDialog(this) {
+                        render()
+                    }
+                    true
+                }
                 R.id.action_about -> { showAbout(); true }
                 else -> false
             }
@@ -176,19 +197,60 @@ class MainActivity : AppCompatActivity() {
         }
         list.adapter = adapter
 
-        // Built once here rather than on every render: the nine kinds Gander opens do not
-        // change while it is running, and the block itself is shown or hidden, not rebuilt.
-        welcome = findViewById(R.id.welcome)
-        fillFormatGrid(findViewById(R.id.formatGrid))
+        tabLayout = findViewById(R.id.tabLayout)
+        viewPager = findViewById(R.id.viewPager)
 
-        // Three controls, two destinations. The FAB and the welcome block's filled button
-        // are the same action seen in two states of the screen, and the outlined button is
-        // what the "+ Add a folder" row does once there is a list to put it in.
+        // Built once here rather than on every render: courses do not change while it is running.
+        myUnitsView = findViewById(R.id.myUnitsView)
+
+        recentsList = RecyclerView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            clipToPadding = false
+            setPadding(0, 0, 0, 200)
+            layoutManager = GridLayoutManager(this@MainActivity, columns).apply {
+                spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                    override fun getSpanSize(position: Int) =
+                        if (recentsAdapter.isFullSpan(position)) columns else 1
+                }.apply {
+                    isSpanIndexCacheEnabled = true
+                    isSpanGroupIndexCacheEnabled = true
+                }
+            }
+            adapter = recentsAdapter
+        }
+
+        foldersList = RecyclerView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            clipToPadding = false
+            setPadding(0, 0, 0, 200)
+            layoutManager = GridLayoutManager(this@MainActivity, columns).apply {
+                spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                    override fun getSpanSize(position: Int) =
+                        if (foldersAdapter.isFullSpan(position)) columns else 1
+                }.apply {
+                    isSpanIndexCacheEnabled = true
+                    isSpanGroupIndexCacheEnabled = true
+                }
+            }
+            adapter = foldersAdapter
+        }
+
+        myUnitsView = findViewById(R.id.myUnitsView)
+        viewPager.adapter = HomePagerAdapter(listOf(myUnitsView, recentsList, foldersList))
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = when (position) {
+                0 -> getString(R.string.tab_my_units)
+                1 -> getString(R.string.tab_recent_files)
+                else -> getString(R.string.tab_folders)
+            }
+        }.attach()
+
         fab = findViewById(R.id.openFab)
         val openFile = View.OnClickListener { openDocument.launch(arrayOf("*/*")) }
         fab.setOnClickListener(openFile)
-        findViewById<View>(R.id.openFileButton).setOnClickListener(openFile)
-        findViewById<View>(R.id.addFolderButton).setOnClickListener { openTree.launch(null) }
+
+        selectedProgramCard = findViewById(R.id.selectedProgramCard)
+        selectedProgramText = findViewById(R.id.selectedProgramText)
 
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
@@ -433,6 +495,36 @@ class MainActivity : AppCompatActivity() {
             else androidx.appcompat.content.res.AppCompatResources.getDrawable(this, R.drawable.ic_back)
         toolbar.navigationContentDescription = getString(R.string.back)
 
+        val selectedCourse = Settings.getSelectedCourse(this)
+        val hasCourse = selectedCourse != null
+
+        if (here == null && !hasCourse) {
+            selectedProgramCard.visibility = View.GONE
+            tabLayout.visibility = View.GONE
+            viewPager.visibility = View.GONE
+            list.visibility = View.GONE
+            fab.hide()
+            CourseSelector.showDialog(this) {
+                render()
+            }
+            return
+        }
+
+        if (here == null) {
+            selectedProgramCard.visibility = View.VISIBLE
+            selectedProgramText.text = selectedCourse
+            tabLayout.visibility = View.VISIBLE
+            viewPager.visibility = View.VISIBLE
+            list.visibility = View.GONE
+            fab.show()
+        } else {
+            selectedProgramCard.visibility = View.GONE
+            tabLayout.visibility = View.GONE
+            viewPager.visibility = View.GONE
+            list.visibility = View.VISIBLE
+            fab.show()
+        }
+
         val token = ++renderToken
         // Delayed rather than shown at once. Most folders come back in a few
         // milliseconds, and a bar that appears and vanishes inside one frame reads as a
@@ -448,17 +540,93 @@ class MainActivity : AppCompatActivity() {
             // wait for the whole of the first, which on the slow provider this exists
             // for is the wait it was meant to remove.
             if (token != renderToken) return@execute
-            val screen = if (here == null) homeRows() else folderRows(here)
+            val folderRowsList = if (here != null) folderRows(here) else null
+            val recents = if (here == null) Recents.all(this) else emptyList()
+            val roots = if (here == null) {
+                contentResolver.persistedUriPermissions
+                    .filter { it.isReadPermission && isTreeUri(it.uri) }
+                    .map { it to treeLabel(it.uri) }
+                    .sortedBy { (_, label) -> label.lowercase() }
+            } else emptyList()
+
             main.post {
                 main.removeCallbacks(announce)
                 if (token != renderToken || isDestroyed) return@post
                 progress.visibility = View.GONE
-                // Inside the token guard, so a slow load that finishes after the reader has
-                // moved on cannot put the welcome block back over a folder they are in.
-                welcome.visibility = if (screen.welcome) View.VISIBLE else View.GONE
-                list.visibility = if (screen.welcome) View.GONE else View.VISIBLE
-                if (screen.welcome) fab.hide() else fab.show()
-                adapter.submit(screen.rows)
+                if (here == null) {
+                    val recentsRows = mutableListOf<Row>()
+                    if (recents.isEmpty()) {
+                        recentsRows += Row.Hint(getString(R.string.no_recents_hint))
+                    } else {
+                        recents.forEach { r ->
+                            val (badge, color) = badgeFor(r.name, null)
+                            val ext = r.name.substringAfterLast('.', "").lowercase()
+                            val uri = Uri.parse(r.uri)
+                            recentsRows += Row.Item(
+                                badge, color, r.name,
+                                DateUtils.getRelativeTimeSpanString(r.time).toString(),
+                                onClick = { openInViewer(uri) },
+                                onLongClick = {
+                                    Recents.remove(this, r.uri)
+                                    Thumbs.evict(this, r.uri)
+                                    toastRemoved()
+                                    render()
+                                },
+                                thumbUri = uri.takeIf { Thumbs.supported(FileKind.detect(ext, null), ext) },
+                                thumbExt = ext
+                            )
+                        }
+                    }
+                    recentsAdapter.submit(recentsRows)
+
+                    val foldersRows = mutableListOf<Row>()
+                    if (roots.isEmpty()) foldersRows += Row.Hint(getString(R.string.no_folders_hint))
+                    roots.forEach { (perm, label) ->
+                        foldersRows += Row.Item(
+                            "DIR", DIR_COLOR, label, null,
+                            onClick = {
+                                stack.addLast(
+                                    Crumb(perm.uri, DocumentsContract.getTreeDocumentId(perm.uri), label)
+                                )
+                                render()
+                            },
+                            onLongClick = {
+                                val dialog = MaterialAlertDialogBuilder(this)
+                                    .setTitle(R.string.remove_folder_title)
+                                    .setMessage(getString(R.string.remove_folder_message, label))
+                                    .setPositiveButton(R.string.remove) { _, _ ->
+                                        runCatching {
+                                            contentResolver.releasePersistableUriPermission(
+                                                perm.uri,
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                            )
+                                        }
+                                        toastRemoved()
+                                        render()
+                                    }
+                                    .setNegativeButton(android.R.string.cancel, null)
+                                    .create()
+                                dialog.show()
+                                listOf(
+                                    AlertDialog.BUTTON_POSITIVE to
+                                        com.google.android.material.R.attr.colorError,
+                                    AlertDialog.BUTTON_NEGATIVE to
+                                        com.google.android.material.R.attr.colorOnSurfaceVariant
+                                ).forEach { (which, attr) ->
+                                    dialog.getButton(which).let {
+                                        it.setTextColor(MaterialColors.getColor(it, attr))
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    foldersRows += Row.Item("+", ADD_COLOR, getString(R.string.add_folder), null,
+                        onClick = { openTree.launch(null) })
+                    foldersAdapter.submit(foldersRows)
+                } else {
+                    adapter.submit(folderRowsList.orEmpty())
+                }
             }
         }
     }
@@ -470,109 +638,7 @@ class MainActivity : AppCompatActivity() {
             .also { it.show() }
     }
 
-    private fun homeRows(): Screen {
-        val recents = Recents.all(this)
-        // Labelled first, then sorted. sortedBy runs its selector on every comparison,
-        // so naming the tree inside it cost a provider query per comparison rather than
-        // one per folder.
-        val roots = contentResolver.persistedUriPermissions
-            .filter { it.isReadPermission && isTreeUri(it.uri) }
-            .map { it to treeLabel(it.uri) }
-            .sortedBy { (_, label) -> label.lowercase() }
-
-        // Nothing opened and nothing granted is a first run, and a first run gets the
-        // welcome block in place of the list rather than two empty headings above three
-        // paragraphs about what this is. Once either has happened the reader knows, and
-        // the ordinary list comes back for good.
-        if (recents.isEmpty() && roots.isEmpty()) return Screen(emptyList(), welcome = true)
-
-        val rows = mutableListOf<Row>()
-        rows += Row.Header(getString(R.string.recent_files))
-        if (recents.isEmpty()) {
-            rows += Row.Hint(getString(R.string.no_recents_hint))
-        } else {
-            recents.forEach { r ->
-                val (badge, color) = badgeFor(r.name, null)
-                val ext = r.name.substringAfterLast('.', "").lowercase()
-                val uri = Uri.parse(r.uri)
-                rows += Row.Item(
-                    badge, color, r.name,
-                    DateUtils.getRelativeTimeSpanString(r.time).toString(),
-                    onClick = { openInViewer(uri) },
-                    onLongClick = {
-                        Recents.remove(this, r.uri)
-                        Thumbs.evict(this, r.uri)
-                        toastRemoved()
-                        render()
-                    },
-                    thumbUri = uri.takeIf { Thumbs.supported(FileKind.detect(ext, null), ext) },
-                    thumbExt = ext
-                )
-            }
-        }
-        rows += Row.Header(getString(R.string.folders))
-        if (roots.isEmpty()) rows += Row.Hint(getString(R.string.no_folders_hint))
-        roots.forEach { (perm, label) ->
-            rows += Row.Item(
-                "DIR", DIR_COLOR, label, null,
-                onClick = {
-                    stack.addLast(
-                        Crumb(perm.uri, DocumentsContract.getTreeDocumentId(perm.uri), label)
-                    )
-                    render()
-                },
-                // The only confirmation in the app, because this is the only thing on the
-                // screen that cannot be undone. Android has no inverse for a released
-                // permission: takePersistableUriPermission needs a live grant from an intent
-                // result, so once this has run the way back is the system picker.
-                onLongClick = {
-                    val dialog = MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.remove_folder_title)
-                        .setMessage(getString(R.string.remove_folder_message, label))
-                        .setPositiveButton(R.string.remove) { _, _ ->
-                            // Write as well as read: a build that could rename files took both
-                            // for a folder, and giving back only the read half left the write
-                            // half behind, out of sight, since the list shows read grants only.
-                            // Releasing a half that is not held changes nothing.
-                            runCatching {
-                                contentResolver.releasePersistableUriPermission(
-                                    perm.uri,
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                )
-                            }
-                            toastRemoved()
-                            render()
-                        }
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .create()
-                    dialog.show()
-                    // Tinted after show(): getButton returns null until the dialog is laid
-                    // out. Both buttons are set rather than only the destructive one,
-                    // because Gander's own primary is a burnt red: an error-coloured Remove
-                    // beside an untouched Cancel measures dE 4.6 on the light palette, near
-                    // enough to the 2.3 a person can notice that it marks nothing and only
-                    // makes Cancel look dangerous too. Standing the dismissive button down
-                    // to a neutral is what leaves the red meaning one thing.
-                    listOf(
-                        AlertDialog.BUTTON_POSITIVE to
-                            com.google.android.material.R.attr.colorError,
-                        AlertDialog.BUTTON_NEGATIVE to
-                            com.google.android.material.R.attr.colorOnSurfaceVariant
-                    ).forEach { (which, attr) ->
-                        dialog.getButton(which).let {
-                            it.setTextColor(MaterialColors.getColor(it, attr))
-                        }
-                    }
-                }
-            )
-        }
-        rows += Row.Item("+", ADD_COLOR, getString(R.string.add_folder), null,
-            onClick = { openTree.launch(null) })
-        return Screen(rows)
-    }
-
-    private fun folderRows(crumb: Crumb): Screen {
+    private fun folderRows(crumb: Crumb): List<Row> {
         val children = mutableListOf<ChildDoc>()
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             crumb.treeUri, crumb.docId
@@ -626,7 +692,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         if (rows.isEmpty()) rows += Row.Hint(getString(R.string.empty_folder))
-        return Screen(rows)
+        return rows
     }
 
     private fun isTreeUri(uri: Uri): Boolean =
@@ -649,26 +715,18 @@ class MainActivity : AppCompatActivity() {
         return name ?: id.substringAfterLast(':').ifEmpty { id }
     }
 
-    /**
-     * Draws the nine tiles of the welcome grid: eight of the pairs [badgeFor] returns, and
-     * ETC for the kinds that have no tile.
-     *
-     * The grid is filled here rather than declared nine times in the layout so that the
-     * first screen cannot end up naming a different set of things from the rows underneath
-     * it. The tint is the same call the adapter makes on a real row.
-     */
-    private fun fillFormatGrid(grid: ViewGroup) {
-        WELCOME_BADGES.forEach { (label, color) ->
-            val tile = layoutInflater.inflate(R.layout.view_welcome_tile, grid, false) as TextView
-            tile.text = label
-            tile.background.mutate().setTint(color)
-            grid.addView(tile)
+    private class HomePagerAdapter(private val views: List<View>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        override fun getItemCount() = views.size
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val view = views[viewType]
+            (view.parent as? ViewGroup)?.removeView(view)
+            return object : RecyclerView.ViewHolder(view) {}
         }
-        // One description for all nine, and screenReaderFocusable is what makes the grid a
-        // single stop rather than a container TalkBack walks into.
-        grid.contentDescription = getString(R.string.welcome_formats_spoken)
-        ViewCompat.setScreenReaderFocusable(grid, true)
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {}
+        override fun getItemViewType(position: Int): Int = position
     }
+
+
 
     override fun onDestroy() {
         // Anything already queued still runs to completion and the thread ends with it,

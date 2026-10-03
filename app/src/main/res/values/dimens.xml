@@ -18,6 +18,10 @@
          instead of ellipsising its label. -->
     <dimen name="welcome_action_min_width">240dp</dimen>
 
+    <dimen name="course_header_top_margin">24dp</dimen>
+    <dimen name="course_header_bottom_margin">8dp</dimen>
+    <dimen name="course_button_bottom_margin">8dp</dimen>
+
     <!-- Above and below a box with a field to type in, a zip file's password or a page to go
          to, in place of Material's 80dp: with the keyboard up, 80 left the field under 48dp on a
          731dp phone. The same as a dialog's inset at its sides. -->

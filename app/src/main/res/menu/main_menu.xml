@@ -13,6 +13,10 @@
         android:title="@string/share_app"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_select_course"
+        android:title="@string/my_course_program"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_about"
         android:title="@string/about_gander"
         app:showAsAction="never" />

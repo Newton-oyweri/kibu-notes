@@ -128,7 +128,7 @@ class AccessibilityTest {
     fun theFirstRunScreenPassesTheAccessibilityChecks() {
         ActivityScenario.launch(MainActivity::class.java).use {
             Thread.sleep(1500)
-            checkFrom(onView(withId(R.id.formatGrid)))
+            checkFrom(onView(withId(R.id.courseContainer)))
         }
     }
 

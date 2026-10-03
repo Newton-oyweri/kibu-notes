@@ -21,13 +21,14 @@
              105dp wide it cannot reach the overflow button on any phone. -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="wrap_content"
+            android:minHeight="?attr/actionBarSize"
             android:background="?attr/colorSurface">
 
             <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="?attr/actionBarSize"
                 app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
 
             <!-- Shown only at the root; render() hides it inside a folder, where the
@@ -37,33 +38,51 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
                 android:visibility="gone">
 
-                <!-- The adaptive icon itself, so this is the same object that was tapped
-                     to get here and there is no second copy of the art to drift. It
-                     carries the device's own icon mask, which is the shape the launcher
-                     drew it in a moment ago, and the debug variant's own icon in a debug
-                     build. -->
-                <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:importantForAccessibility="no"
-                    android:src="@mipmap/ic_launcher_round" />
-
-                <!-- Filled white in the drawable and tinted here, because a ?attr colour
-                     resolved inside vector XML depends on the inflation path. -->
-                <TextView
-                    android:id="@+id/wordmark"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="9dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- The adaptive icon itself, so this is the same object that was tapped
+                         to get here and there is no second copy of the art to drift. It
+                         carries the device's own icon mask, which is the shape the launcher
+                         drew it in a moment ago, and the debug variant's own icon in a debug
+                         build. -->
+                    <ImageView
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:importantForAccessibility="no"
+                        android:src="@mipmap/ic_launcher_round" />
+
+                    <!-- Filled white in the drawable and tinted here, because a ?attr colour
+                         resolved inside vector XML depends on the inflation path. -->
+                    <TextView
+                        android:id="@+id/wordmark"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:fontFamily="sans-serif"
+                        android:text="@string/app_name"
+                        android:textAppearance="?attr/textAppearanceTitleLarge"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
                     android:fontFamily="sans-serif"
-                    android:text="@string/app_name"
-                    android:textAppearance="?attr/textAppearanceTitleLarge"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface" />
+                    android:text="@string/shared_student_notes"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
         </FrameLayout>
 
@@ -78,106 +97,94 @@
             android:visibility="gone"
             app:trackCornerRadius="0dp" />
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/selectedProgramCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/my_course_program"
+                    android:textAppearance="?attr/textAppearanceLabelSmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/selectedProgramText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:tabMode="fixed"
+            app:tabGravity="fill" />
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/viewPager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/list"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false"
-            android:paddingBottom="88dp" />
+            android:paddingBottom="88dp"
+            android:visibility="gone" />
 
-        <!-- The first run, in place of the list rather than at the top of it.
-
-             This used to be row_welcome.xml, a row in the RecyclerView, which meant the
-             screen opened on a paragraph, a four line list of formats, a tip that looked
-             tappable and was not, and then a Folders heading with only the Add row beneath
-             it. A centred block is the wrong shape for a list row, so it is a sibling of
-             the list now and each replaces the other. render() decides which.
-
-             ScrollView because the block has to survive landscape and the largest system
-             font size; fillViewport because without it the child would only be as tall as
-             its contents and gravity="center" would have nothing to centre within. -->
+        <!-- My Units tab view (Tab 0). -->
         <ScrollView
-            android:id="@+id/welcome"
+            android:id="@+id/myUnitsView"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:fillViewport="true"
-            android:visibility="gone">
+            android:layout_height="match_parent"
+            android:fillViewport="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:paddingStart="32dp"
-                android:paddingTop="24dp"
-                android:paddingEnd="32dp"
-                android:paddingBottom="40dp">
+                android:padding="32dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="@string/welcome_headline"
+                    android:text="@string/tab_my_units"
                     android:textAppearance="?attr/textAppearanceHeadlineSmall" />
 
-                <!-- Filled by MainActivity from WELCOME_BADGES, not declared nine times
-                     here, so adding a kind is one line in one place and the grid can
-                     never disagree with the badges on the rows.
-
-                     The column count is a resource rather than a measurement. Three across
-                     needs 268dp including this layout's padding, and the narrowest phone
-                     has 320dp to give, so it fits everywhere in either orientation.
-
-                     A values-land override putting all nine on one row was tried and
-                     dropped: it needs 676dp, which a 411x731dp emulator has and a 720p
-                     xhdpi phone (360x640dp) does not, so the last tiles were clipped on
-                     one of the commonest geometries there is. In phone landscape the block
-                     scrolls instead, which is what the ScrollView is for. If it is worth
-                     revisiting, shrink the tiles for that qualifier rather than adding
-                     columns, and check the arithmetic against 533dp before 731dp. -->
-                <!-- Note for a future qualifier: smallestWidth outranks orientation in the
-                     resource table, so values-sw600dp beats a values-land on a landscape
-                     tablet, and resolution is per resource name rather than per folder. -->
-                <GridLayout
-                    android:id="@+id/formatGrid"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="28dp"
-                    android:columnCount="@integer/welcome_grid_columns"
-                    android:focusable="true" />
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="28dp"
+                    android:layout_marginTop="16dp"
                     android:gravity="center"
-                    android:lineSpacingExtra="2dp"
-                    android:text="@string/welcome_promise"
+                    android:text="@string/my_units_placeholder"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
-
-                <!-- The two ways a file reaches Gander, in priority order. Both call the
-                     launchers the FAB and the old Add row already used; there is no third
-                     route into the picker. minWidth rather than a fixed width so a large
-                     system font size grows the button instead of ellipsising the label. -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openFileButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="32dp"
-                    android:minWidth="@dimen/welcome_action_min_width"
-                    android:text="@string/open_a_file" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/addFolderButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:minWidth="@dimen/welcome_action_min_width"
-                    android:text="@string/add_folder" />
             </LinearLayout>
         </ScrollView>
     </LinearLayout>

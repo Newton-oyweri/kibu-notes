@@ -18,6 +18,7 @@ object Settings {
 
     private const val PREFS = "viewer"
     private const val KEY_NIGHT = "night"
+    private const val KEY_SELECTED_COURSE = "selected_course"
 
     /** Whether PDF pages are drawn turned over. See issue #19 and `pdf.html`. */
     fun night(context: Context): Boolean =
@@ -27,5 +28,14 @@ object Settings {
     fun setNight(context: Context, on: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit { putBoolean(KEY_NIGHT, on) }
+    }
+
+    fun getSelectedCourse(context: Context): String? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_SELECTED_COURSE, null)
+
+    fun setSelectedCourse(context: Context, course: String?) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putString(KEY_SELECTED_COURSE, course) }
     }
 }

@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView
 internal sealed interface Row {
     data class Header(val title: String) : Row
     data class Hint(val text: String) : Row
+    data class CourseBanner(val courseName: String, val onClick: () -> Unit) : Row
     data class Item(
         val badge: String,
         val color: Int,
@@ -53,6 +54,7 @@ internal class RowAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     override fun getItemViewType(position: Int): Int = when (rows[position]) {
         is Row.Header -> 0
         is Row.Hint -> 1
+        is Row.CourseBanner -> 3
         is Row.Item -> 2
     }
 
@@ -61,6 +63,7 @@ internal class RowAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         val layout = when (viewType) {
             0 -> R.layout.row_header
             1 -> R.layout.row_hint
+            3 -> R.layout.row_course_banner
             else -> R.layout.row_item
         }
         return object : RecyclerView.ViewHolder(inflater.inflate(layout, parent, false)) {}
@@ -74,6 +77,11 @@ internal class RowAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
                 holder.itemView.findViewById<TextView>(R.id.headerText).text = row.title
             is Row.Hint ->
                 holder.itemView.findViewById<TextView>(R.id.hintText).text = row.text
+            is Row.CourseBanner -> {
+                holder.itemView.findViewById<TextView>(R.id.courseBannerText).text = row.courseName
+                holder.itemView.setOnClickListener { row.onClick() }
+                holder.itemView.contentDescription = "${holder.itemView.context.getString(R.string.selected_program)}: ${row.courseName}"
+            }
             is Row.Item -> {
                 val badge = holder.itemView.findViewById<TextView>(R.id.badge)
                 val thumb = holder.itemView.findViewById<ImageView>(R.id.thumb)

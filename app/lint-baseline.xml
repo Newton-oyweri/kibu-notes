@@ -7,7 +7,7 @@
         errorLine1="            searchPort?.postMessage(WebMessageCompat(PortCommand.nightMode(on)))"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="328"
             column="13"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="                searchPort?.postMessage(WebMessageCompat(PortCommand.goToPage(n)))"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="643"
             column="17"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="            searchPort?.postMessage(WebMessageCompat(s))"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1030"
             column="13"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="        WebViewCompat.postWebMessage("
         errorLine2="        ^">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1089"
             column="9"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="        if (pendingQuery.isNotEmpty()) mine.postMessage(WebMessageCompat(PortCommand.query(pendingQuery)))"
         errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1092"
             column="40"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="            mine.postMessage(WebMessageCompat(PortCommand.nightMode(loadedNight)))"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1097"
             column="13"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="        runCatching { searchPort?.close() }"
         errorLine2="                      ~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1102"
             column="23"/>
     </issue>
@@ -129,7 +129,7 @@
         errorLine1="        notifyDataSetChanged()"
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/Rows.kt"
+            file="src/main/java/com/kibu/notes/Rows.kt"
             line="40"
             column="9"/>
     </issue>
@@ -220,7 +220,7 @@
         errorLine1="            stack.addLast(Crumb(Uri.parse(uris[i]), docIds[i], labels[i]))"
         errorLine2="                                ~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/MainActivity.kt"
+            file="src/main/java/com/kibu/notes/MainActivity.kt"
             line="247"
             column="33"/>
     </issue>
@@ -231,7 +231,7 @@
         errorLine1="        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }"
         errorLine2="                                                               ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/MainActivity.kt"
+            file="src/main/java/com/kibu/notes/MainActivity.kt"
             line="360"
             column="64"/>
     </issue>
@@ -242,7 +242,7 @@
         errorLine1="                val uri = Uri.parse(r.uri)"
         errorLine2="                          ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/MainActivity.kt"
+            file="src/main/java/com/kibu/notes/MainActivity.kt"
             line="489"
             column="27"/>
     </issue>
@@ -253,7 +253,7 @@
         errorLine1="        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)"
         errorLine2="        ^">
         <location
-            file="src/main/java/com/arjun/gander/Recents.kt"
+            file="src/main/java/com/kibu/notes/Recents.kt"
             line="59"
             column="9"/>
     </issue>
@@ -264,7 +264,7 @@
         errorLine1="            else Bitmap.createScaledBitmap("
         errorLine2="                 ^">
         <location
-            file="src/main/java/com/arjun/gander/Thumbs.kt"
+            file="src/main/java/com/kibu/notes/Thumbs.kt"
             line="137"
             column="18"/>
     </issue>
@@ -275,7 +275,7 @@
         errorLine1="                    val bmp = Bitmap.createBitmap(SIZE, height, Bitmap.Config.ARGB_8888)"
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/Thumbs.kt"
+            file="src/main/java/com/kibu/notes/Thumbs.kt"
             line="153"
             column="31"/>
     </issue>
@@ -286,7 +286,7 @@
         errorLine1="            web, WebMessageCompat(&quot;vw-search-port&quot;, arrayOf(ends[1])), Uri.parse(&quot;*&quot;))"
         errorLine2="                                                                       ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="1090"
             column="72"/>
     </issue>
@@ -319,7 +319,7 @@
         errorLine1="            setText(pageAt.toString())"
         errorLine2="                    ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/arjun/gander/ViewerActivity.kt"
+            file="src/main/java/com/kibu/notes/ViewerActivity.kt"
             line="603"
             column="21"/>
     </issue>

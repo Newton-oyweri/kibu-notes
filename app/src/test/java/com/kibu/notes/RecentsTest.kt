@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * The recents list.
@@ -195,6 +196,18 @@ class RecentsTest {
     fun aFileWithNoPersistedGrantIsNeverListed() {
         Recents.add(context, FixtureProvider.uriFor("a.pdf"), "Opened once")
         assertThat(Recents.all(context)).isEmpty()
+    }
+
+    @Test
+    fun localExistingFileIsIncludedInRecents() {
+        val file = File(context.cacheDir, "test_recent.pdf").apply { writeText("pdf") }
+        val uri = Uri.fromFile(file)
+        Recents.add(context, uri, "Local Note")
+
+        assertThat(names()).contains("Local Note")
+
+        file.delete()
+        assertThat(names()).doesNotContain("Local Note")
     }
 
     // ---------------------------------------------------------------

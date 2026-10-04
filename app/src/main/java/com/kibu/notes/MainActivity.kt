@@ -89,6 +89,8 @@ class MainActivity : AppCompatActivity() {
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
     private var myUnitsJob: Job? = null
+    private var loadedCourseName: String? = null
+    private var courseSelectorShowing = false
 
     /**
      * The last "Removed" toast, kept only so the next one can cancel it.
@@ -186,9 +188,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_rate -> { openPlayListing(); true }
                 R.id.action_share_app -> { shareGander(); true }
                 R.id.action_select_course -> {
-                    CourseSelector.showDialog(this) {
-                        render()
-                    }
+                    showCourseSelectorIfNeeded()
                     true
                 }
                 R.id.action_about -> { showAbout(); true }
@@ -501,6 +501,16 @@ class MainActivity : AppCompatActivity() {
      * cleared in the meantime, so returning from a document leaves the old list on
      * screen until the new one is ready rather than blinking through empty.
      */
+    private fun showCourseSelectorIfNeeded() {
+        if (courseSelectorShowing || isFinishing || isDestroyed) return
+        courseSelectorShowing = true
+        CourseSelector.showDialog(this) {
+            courseSelectorShowing = false
+            loadedCourseName = null
+            render()
+        }
+    }
+
     private fun render() {
         val here = stack.lastOrNull()
         backCallback.isEnabled = here != null
@@ -521,9 +531,7 @@ class MainActivity : AppCompatActivity() {
             viewPager.visibility = View.GONE
             list.visibility = View.GONE
             fab.hide()
-            CourseSelector.showDialog(this) {
-                render()
-            }
+            showCourseSelectorIfNeeded()
             return
         }
 
@@ -744,13 +752,13 @@ class MainActivity : AppCompatActivity() {
         override fun getItemViewType(position: Int): Int = position
     }
 
-    private fun loadMyUnits() {
+    private fun loadMyUnits(forceReload: Boolean = false) {
         val container = findViewById<ViewGroup>(R.id.myUnitsContainer) ?: return
         val selectedCourseName = Settings.getSelectedCourse(this)
 
-        container.removeAllViews()
-
         if (selectedCourseName.isNullOrEmpty()) {
+            loadedCourseName = null
+            container.removeAllViews()
             val emptyLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -767,15 +775,20 @@ class MainActivity : AppCompatActivity() {
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply { topMargin = 24 }
                     setOnClickListener {
-                        CourseSelector.showDialog(this@MainActivity) {
-                            render()
-                        }
+                        showCourseSelectorIfNeeded()
                     }
                 })
             }
             container.addView(emptyLayout)
             return
         }
+
+        if (!forceReload && loadedCourseName == selectedCourseName && container.childCount > 0) {
+            return
+        }
+
+        loadedCourseName = selectedCourseName
+        container.removeAllViews()
 
         val loadingView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -842,7 +855,7 @@ class MainActivity : AppCompatActivity() {
                             LinearLayout.LayoutParams.WRAP_CONTENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply { topMargin = 24 }
-                        setOnClickListener { loadMyUnits() }
+                        setOnClickListener { loadMyUnits(forceReload = true) }
                     })
                 }
                 container.addView(errorLayout)

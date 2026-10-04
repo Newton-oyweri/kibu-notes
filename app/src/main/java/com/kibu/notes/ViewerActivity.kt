@@ -314,13 +314,15 @@ class ViewerActivity : AppCompatActivity() {
         // in a zip is written to the phone, and Recents is on the phone. Only from
         // Gander's own screens, which is where the picker is: another app offering a
         // persistable grant would otherwise get an entry, under a name of its choosing.
-        if (fromGander && uri.scheme == "content" && !ArchiveProvider.isEntry(this, uri)) {
-            runCatching {
-                contentResolver.takePersistableUriPermission(
-                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                Recents.add(this, uri, name)
+        if (fromGander && !ArchiveProvider.isEntry(this, uri)) {
+            if (uri.scheme == "content") {
+                runCatching {
+                    contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
             }
+            Recents.add(this, uri, name)
         }
 
         // Held past the when because setUpSearch needs it to know whether the

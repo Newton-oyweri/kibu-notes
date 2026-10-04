@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /**
  * Recently opened files, limited to URIs whose read grant was persisted
@@ -27,7 +28,15 @@ object Recents {
             .filter { it.isReadPermission }
             .map { it.uri.toString() }
             .toSet()
-        return load(context).filter { it.uri in granted }
+        return load(context).filter { entry ->
+            val uri = entry.uri.toUri()
+            if (uri.scheme == "file") {
+                val path = uri.path
+                path != null && File(path).exists()
+            } else {
+                entry.uri in granted
+            }
+        }
     }
 
     fun add(context: Context, uri: Uri, name: String) {

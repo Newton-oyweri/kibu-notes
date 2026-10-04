@@ -127,4 +127,20 @@ class MyUnitsTest {
             assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
         }
     }
+
+    @Test
+    fun getResourcesByUnitReturnsMatchingUnitResources() {
+        runBlocking {
+            val resourcesForU1 = repository.getResourcesByUnit("u1", context)
+            assertThat(resourcesForU1).hasSize(1)
+            assertThat(resourcesForU1.first().title).isEqualTo("CSC 110 Lecture Notes")
+
+            val resourcesForU2 = repository.getResourcesByUnit("u2", context)
+            assertThat(resourcesForU2).hasSize(1)
+            assertThat(resourcesForU2.first().title).isEqualTo("CSC 120 Exam 2023")
+
+            val resourcesForU3 = repository.getResourcesByUnit("u3", context)
+            assertThat(resourcesForU3).isEmpty()
+        }
+    }
 }

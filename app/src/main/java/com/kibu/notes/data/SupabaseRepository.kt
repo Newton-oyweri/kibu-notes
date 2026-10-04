@@ -83,18 +83,20 @@ open class SupabaseRepository {
     }
 
     open suspend fun getResourcesByUnit(unitId: String, context: Context? = null): List<Resource> {
-        return try {
-            val remote = client.from("resources")
+        val all = runCatching { getAllResources(context) }.getOrNull()
+            ?: context?.let { LocalCache.loadResources(it) }.orEmpty()
+        val matching = all.filter { it.unitId == unitId }
+        if (matching.isNotEmpty()) return matching
+
+        return runCatching {
+            client.from("resources")
                 .select {
                     filter {
                         eq("unit_id", unitId)
                     }
                 }
                 .decodeList<Resource>()
-            remote
-        } catch (e: Exception) {
-            getAllResources(context).filter { it.unitId == unitId }
-        }
+        }.getOrDefault(matching)
     }
 
     open suspend fun getAllResources(context: Context? = null): List<Resource> {

@@ -68,6 +68,10 @@
         </activity>
 
         <activity
+            android:name=".UnitDetailActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ViewerActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">

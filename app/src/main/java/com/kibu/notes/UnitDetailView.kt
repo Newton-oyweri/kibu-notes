@@ -48,6 +48,7 @@ object UnitDetailView {
             ).apply { setMargins(16, 16, 16, 16) }
             addTab(newTab().setText("Topics"))
             addTab(newTab().setText("Past papers"))
+
             addTab(newTab().setText("Shared"))
         }
         container.addView(tabLayout)

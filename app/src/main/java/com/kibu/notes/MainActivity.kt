@@ -85,11 +85,12 @@ class MainActivity : AppCompatActivity() {
     lateinit var foldersList: RecyclerView
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
+    private lateinit var selectedPeriodText: TextView
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
     private var myUnitsJob: Job? = null
-    private var loadedCourseName: String? = null
+    private var loadedCourseKey: String? = null
     private var courseSelectorShowing = false
 
     /**
@@ -271,10 +272,11 @@ class MainActivity : AppCompatActivity() {
 
         selectedProgramCard = findViewById(R.id.selectedProgramCard)
         selectedProgramText = findViewById(R.id.selectedProgramText)
+        selectedPeriodText = findViewById(R.id.selectedPeriodText)
         selectedProgramCard.isClickable = true
         selectedProgramCard.isFocusable = true
         selectedProgramCard.setOnClickListener {
-            showCourseSelectorIfNeeded()
+            showPeriodSelectorOrCourseSelector()
         }
 
         restoreStack(savedInstanceState)
@@ -511,10 +513,26 @@ class MainActivity : AppCompatActivity() {
         courseSelectorShowing = true
         CourseSelector.showDialog(this, supabaseRepository, onDismiss = {
             courseSelectorShowing = false
-        }) { selectedCourse ->
+        }) { _ ->
             courseSelectorShowing = false
-            loadedCourseName = null
+            loadedCourseKey = null
             render()
+        }
+    }
+
+    private fun showPeriodSelectorOrCourseSelector() {
+        val selectedCourse = Settings.getSelectedCourse(this)
+        if (selectedCourse.isNullOrEmpty()) {
+            showCourseSelectorIfNeeded()
+        } else {
+            CourseSelector.showYearSemesterDialog(
+                context = this,
+                repository = supabaseRepository,
+                onChangeProgramRequested = { showCourseSelectorIfNeeded() }
+            ) { _, _ ->
+                loadedCourseKey = null
+                render()
+            }
         }
     }
 
@@ -530,6 +548,8 @@ class MainActivity : AppCompatActivity() {
         toolbar.navigationContentDescription = getString(R.string.back)
 
         val selectedCourse = Settings.getSelectedCourse(this)
+        val selectedYear = Settings.getSelectedYear(this)
+        val selectedSemester = Settings.getSelectedSemester(this)
         val hasCourse = selectedCourse != null
 
         if (here == null && !hasCourse) {
@@ -545,6 +565,11 @@ class MainActivity : AppCompatActivity() {
         if (here == null) {
             selectedProgramCard.visibility = View.VISIBLE
             selectedProgramText.text = selectedCourse
+            if (selectedYear != null && selectedSemester != null) {
+                selectedPeriodText.text = getString(R.string.year_semester_header, selectedYear, selectedSemester)
+            } else {
+                selectedPeriodText.text = getString(R.string.tap_to_select_year)
+            }
             tabLayout.visibility = View.VISIBLE
             viewPager.visibility = View.VISIBLE
             list.visibility = View.GONE
@@ -764,7 +789,7 @@ class MainActivity : AppCompatActivity() {
         val selectedCourseName = Settings.getSelectedCourse(this)
 
         if (selectedCourseName.isNullOrEmpty()) {
-            loadedCourseName = null
+            loadedCourseKey = null
             container.removeAllViews()
             val emptyLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -790,12 +815,43 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (!forceReload && loadedCourseName == selectedCourseName && container.childCount > 0) {
+        val selectedYear = Settings.getSelectedYear(this)
+        val selectedSemester = Settings.getSelectedSemester(this)
+
+        if (selectedYear == null || selectedSemester == null) {
+            loadedCourseKey = null
+            container.removeAllViews()
+            val emptyLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(48, 64, 48, 64)
+                addView(TextView(context).apply {
+                    text = getString(R.string.no_year_selected)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+                    gravity = Gravity.CENTER
+                })
+                addView(MaterialButton(context).apply {
+                    text = getString(R.string.select_year_semester)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 24 }
+                    setOnClickListener {
+                        showPeriodSelectorOrCourseSelector()
+                    }
+                })
+            }
+            container.addView(emptyLayout)
+            return
+        }
+
+        val currentKey = "$selectedCourseName-$selectedYear-$selectedSemester"
+        if (!forceReload && loadedCourseKey == currentKey && container.childCount > 0) {
             return
         }
 
         progress.visibility = View.VISIBLE
-        loadedCourseName = selectedCourseName
+        loadedCourseKey = currentKey
         container.removeAllViews()
 
         val loadingView = LinearLayout(this).apply {
@@ -829,10 +885,10 @@ class MainActivity : AppCompatActivity() {
                     if (prog == null) return@withContext null
 
                     val programmeUnits = supabaseRepository.getProgrammeUnits(prog.id, this@MainActivity)
+                        .filter { it.academicYear == selectedYear && it.semester == selectedSemester }
                     val allUnitsMap = supabaseRepository.getUnits(this@MainActivity).associateBy { it.id.trim().lowercase(Locale.getDefault()) }
                     val allResourcesMap = supabaseRepository.getAllResources(this@MainActivity).groupBy { it.unitId.trim().lowercase(Locale.getDefault()) }
 
-                    // Group by (academicYear, semester)
                     val grouped = programmeUnits.groupBy { Pair(it.academicYear, it.semester) }
                         .toSortedMap(compareBy({ it.first }, { it.second }))
 

@@ -14,6 +14,11 @@
     <string name="failed_to_load_units">Failed to load units from database</string>
     <string name="no_course_selected">No course or program selected yet.</string>
     <string name="select_a_course">Select a Course</string>
+    <string name="no_year_selected">No year or semester selected</string>
+    <string name="select_year_semester">Select Year &amp; Semester</string>
+    <string name="tap_to_select_year">Tap to select year &amp; semester</string>
+    <string name="academic_period">Academic Year &amp; Semester</string>
+    <string name="change_program">Change Course Program</string>
     <string name="no_units_found">No units found for %1$s</string>
     <string name="no_notes_for_unit">No study materials available yet</string>
     <string name="year_semester_header">Year %1$d, Semester %2$d</string>

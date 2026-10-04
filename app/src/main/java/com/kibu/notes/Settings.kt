@@ -19,6 +19,8 @@ object Settings {
     private const val PREFS = "viewer"
     private const val KEY_NIGHT = "night"
     private const val KEY_SELECTED_COURSE = "selected_course"
+    private const val KEY_SELECTED_YEAR = "selected_year"
+    private const val KEY_SELECTED_SEMESTER = "selected_semester"
 
     /** Whether PDF pages are drawn turned over. See issue #19 and `pdf.html`. */
     fun night(context: Context): Boolean =
@@ -36,6 +38,28 @@ object Settings {
 
     fun setSelectedCourse(context: Context, course: String?) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putString(KEY_SELECTED_COURSE, course) }
+            .edit {
+                putString(KEY_SELECTED_COURSE, course)
+                remove(KEY_SELECTED_YEAR)
+                remove(KEY_SELECTED_SEMESTER)
+            }
+    }
+
+    fun getSelectedYear(context: Context): Int? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return if (prefs.contains(KEY_SELECTED_YEAR)) prefs.getInt(KEY_SELECTED_YEAR, 1) else null
+    }
+
+    fun getSelectedSemester(context: Context): Int? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return if (prefs.contains(KEY_SELECTED_SEMESTER)) prefs.getInt(KEY_SELECTED_SEMESTER, 1) else null
+    }
+
+    fun setSelectedYearAndSemester(context: Context, year: Int?, semester: Int?) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit {
+                if (year != null) putInt(KEY_SELECTED_YEAR, year) else remove(KEY_SELECTED_YEAR)
+                if (semester != null) putInt(KEY_SELECTED_SEMESTER, semester) else remove(KEY_SELECTED_SEMESTER)
+            }
     }
 }

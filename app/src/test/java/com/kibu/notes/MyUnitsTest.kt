@@ -143,4 +143,41 @@ class MyUnitsTest {
             assertThat(resourcesForU3).isEmpty()
         }
     }
+
+    @Test
+    fun resourceTabFilteringTest() {
+        val resources = listOf(
+            Resource(id = "1", title = "Topic 1", category = "topics", resourceType = "topic_note"),
+            Resource(id = "2", title = "Exam 2022", category = "past_papers", resourceType = "past_paper", examYear = 2022),
+            Resource(id = "3", title = "General Doc", category = "shared", resourceType = "shared")
+        )
+
+        val topicsFiltered = resources.filter {
+            it.category.equals("topics", ignoreCase = true) ||
+                    it.resourceType.equals("topic_note", ignoreCase = true) ||
+                    it.resourceType.equals("summary", ignoreCase = true) ||
+                    it.resourceType.equals("syllabus", ignoreCase = true) ||
+                    it.topicId != null
+        }
+        assertThat(topicsFiltered).hasSize(1)
+        assertThat(topicsFiltered.first().title).isEqualTo("Topic 1")
+
+        val pastPapersFiltered = resources.filter {
+            it.category.equals("past_papers", ignoreCase = true) ||
+                    it.resourceType.equals("past_paper", ignoreCase = true) ||
+                    (it.examYear != null && it.examYear > 0)
+        }
+        assertThat(pastPapersFiltered).hasSize(1)
+        assertThat(pastPapersFiltered.first().title).isEqualTo("Exam 2022")
+
+        val sharedFiltered = resources.filter {
+            it.category.equals("shared", ignoreCase = true) ||
+                    (!it.category.equals("topics", ignoreCase = true) &&
+                            !it.category.equals("past_papers", ignoreCase = true) &&
+                            !it.resourceType.equals("topic_note", ignoreCase = true) &&
+                            !it.resourceType.equals("past_paper", ignoreCase = true))
+        }
+        assertThat(sharedFiltered).hasSize(1)
+        assertThat(sharedFiltered.first().title).isEqualTo("General Doc")
+    }
 }

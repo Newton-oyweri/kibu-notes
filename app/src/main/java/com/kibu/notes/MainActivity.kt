@@ -271,6 +271,11 @@ class MainActivity : AppCompatActivity() {
 
         selectedProgramCard = findViewById(R.id.selectedProgramCard)
         selectedProgramText = findViewById(R.id.selectedProgramText)
+        selectedProgramCard.isClickable = true
+        selectedProgramCard.isFocusable = true
+        selectedProgramCard.setOnClickListener {
+            showCourseSelectorIfNeeded()
+        }
 
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
@@ -504,7 +509,9 @@ class MainActivity : AppCompatActivity() {
     private fun showCourseSelectorIfNeeded() {
         if (courseSelectorShowing || isFinishing || isDestroyed) return
         courseSelectorShowing = true
-        CourseSelector.showDialog(this) {
+        CourseSelector.showDialog(this, supabaseRepository, onDismiss = {
+            courseSelectorShowing = false
+        }) { selectedCourse ->
             courseSelectorShowing = false
             loadedCourseName = null
             render()
@@ -787,13 +794,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        progress.visibility = View.VISIBLE
         loadedCourseName = selectedCourseName
         container.removeAllViews()
 
         val loadingView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(48, 64, 48, 64)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 64, 0, 64)
+            }
             addView(ProgressBar(context).apply { isIndeterminate = true })
             addView(TextView(context).apply {
                 text = getString(R.string.loading_units_and_notes)
@@ -837,6 +850,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }.getOrNull()
 
+            progress.visibility = View.GONE
             container.removeAllViews()
 
             if (result == null) {

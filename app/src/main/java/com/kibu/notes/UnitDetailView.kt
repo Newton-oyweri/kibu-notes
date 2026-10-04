@@ -15,6 +15,7 @@ import android.widget.Toast
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.tabs.TabLayout
 import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.AcademicUnit
 import com.kibu.notes.data.models.Resource
@@ -40,46 +41,28 @@ object UnitDetailView {
     ) {
         container.removeAllViews()
 
-        val headerCard = MaterialCardView(context).apply {
+        val tabLayout = TabLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(16, 16, 16, 16) }
-            cardElevation = 0f
-            strokeWidth = (1 * context.resources.displayMetrics.density).toInt()
-            setStrokeColor(
-                ColorStateList.valueOf(
-                    MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
-                )
+            addTab(newTab().setText("Topics"))
+            addTab(newTab().setText("Past papers"))
+            addTab(newTab().setText("Shared"))
+        }
+        container.addView(tabLayout)
+
+        val contentContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-
-        val headerLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(20, 20, 20, 20)
-        }
-
-        val unitTitle = TextView(context).apply {
-            text = if (unit.code.isNotEmpty()) "${unit.code} - ${unit.title}" else unit.title
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
-        }
-        headerLayout.addView(unitTitle)
-
-        val sectionHeader = TextView(context).apply {
-            text = context.getString(R.string.study_materials_header)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
-            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
-            setPadding(0, 8, 0, 0)
-        }
-        headerLayout.addView(sectionHeader)
-
-        headerCard.addView(headerLayout)
-        container.addView(headerCard)
+        container.addView(contentContainer)
 
         if (!initialResources.isNullOrEmpty()) {
-            displayResources(context, container, initialResources, repository, onOpenFile)
+            setupTabsAndDisplay(context, contentContainer, initialResources, repository, onOpenFile, tabLayout)
             return
         }
 
@@ -89,7 +72,7 @@ object UnitDetailView {
             setPadding(48, 64, 48, 64)
             addView(ProgressBar(context).apply { isIndeterminate = true })
         }
-        container.addView(loadingView)
+        contentContainer.addView(loadingView)
 
         job?.cancel()
         job = CoroutineScope(Dispatchers.Main).launch {
@@ -99,7 +82,7 @@ object UnitDetailView {
                 }
             }.getOrNull()
 
-            container.removeView(loadingView)
+            contentContainer.removeView(loadingView)
 
             if (resources.isNullOrEmpty()) {
                 val emptyView = TextView(context).apply {
@@ -108,11 +91,65 @@ object UnitDetailView {
                     gravity = Gravity.CENTER
                     setPadding(48, 64, 48, 64)
                 }
-                container.addView(emptyView)
+                contentContainer.addView(emptyView)
             } else {
-                displayResources(context, container, resources, repository, onOpenFile)
+                setupTabsAndDisplay(context, contentContainer, resources, repository, onOpenFile, tabLayout)
             }
         }
+    }
+
+    private fun setupTabsAndDisplay(
+        context: Context,
+        contentContainer: ViewGroup,
+        resources: List<Resource>,
+        repository: SupabaseRepository,
+        onOpenFile: (File) -> Unit,
+        tabLayout: TabLayout
+    ) {
+        fun showTab(tabIndex: Int) {
+            contentContainer.removeAllViews()
+            val filtered = when (tabIndex) {
+                0 -> resources.filter { res ->
+                    val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    cat.contains("topic")
+                }
+                1 -> resources.filter { res ->
+                    val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    cat.contains("past") || cat.contains("paper")
+                }
+                else -> resources.filter { res ->
+                    val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    cat.contains("shared") || (!cat.contains("topic") && !cat.contains("past") && !cat.contains("paper"))
+                }
+            }
+
+            if (filtered.isEmpty()) {
+                val emptyView = TextView(context).apply {
+                    text = when (tabIndex) {
+                        0 -> "No topics available"
+                        1 -> "No past papers available"
+                        else -> "No shared resources available"
+                    }
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                    gravity = Gravity.CENTER
+                    setPadding(48, 64, 48, 64)
+                }
+                contentContainer.addView(emptyView)
+            } else {
+                displayResources(context, contentContainer, filtered, repository, onOpenFile)
+            }
+        }
+
+        tabLayout.clearOnTabSelectedListeners()
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                showTab(tab.position)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab) {}
+            override fun onTabReselected(tab: TabLayout.Tab) {}
+        })
+
+        showTab(tabLayout.selectedTabPosition)
     }
 
     private fun displayResources(

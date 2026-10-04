@@ -29,6 +29,7 @@ object CourseSelector {
     fun showDialog(
         context: Context,
         repository: SupabaseRepository = SupabaseRepository(),
+        onDismiss: (() -> Unit)? = null,
         onSelected: (String) -> Unit
     ) {
         val rootLayout = FrameLayout(context).apply {
@@ -60,6 +61,10 @@ object CourseSelector {
             .setView(rootLayout)
             .setNegativeButton(android.R.string.cancel, null)
             .create()
+
+        dialog.setOnDismissListener {
+            onDismiss?.invoke()
+        }
 
         fun loadData() {
             rootLayout.removeAllViews()

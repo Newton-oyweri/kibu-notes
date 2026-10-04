@@ -35,5 +35,6 @@ data class Resource(
     @SerialName("created_at")
     val createdAt: String? = null,
     @SerialName("updated_at")
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val category: String = "shared"
 )

@@ -68,8 +68,8 @@ object CourseSelector {
             CoroutineScope(Dispatchers.Main).launch {
                 val groups = runCatching {
                     withContext(Dispatchers.IO) {
-                        val schools = repository.getSchools()
-                        val programmes = repository.getProgrammes()
+                        val schools = repository.getSchools(context)
+                        val programmes = repository.getProgrammes(context)
                         schools.map { school ->
                             CourseGroup(
                                 school = school.name,

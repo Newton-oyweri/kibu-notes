@@ -18,50 +18,94 @@ open class SupabaseRepository {
 
     private val client by lazy { Supabase.client }
 
-    open suspend fun getSchools(): List<School> {
-        return client.from("schools").select().decodeList()
+    open suspend fun getSchools(context: Context? = null): List<School> {
+        val cached = context?.let { LocalCache.loadSchools(it) }
+        return try {
+            val remote = client.from("schools").select().decodeList<School>()
+            context?.let { LocalCache.saveSchools(it, remote) }
+            remote
+        } catch (e: Exception) {
+            cached ?: throw e
+        }
     }
 
-    open suspend fun getProgrammes(): List<Programme> {
-        return client.from("programmes").select().decodeList()
+    open suspend fun getProgrammes(context: Context? = null): List<Programme> {
+        val cached = context?.let { LocalCache.loadProgrammes(it) }
+        return try {
+            val remote = client.from("programmes").select().decodeList<Programme>()
+            context?.let { LocalCache.saveProgrammes(it, remote) }
+            remote
+        } catch (e: Exception) {
+            cached ?: throw e
+        }
     }
 
-    open suspend fun getProgrammesBySchool(schoolId: String): List<Programme> {
-        return client.from("programmes")
-            .select {
-                filter {
-                    eq("school_id", schoolId)
+    open suspend fun getProgrammesBySchool(schoolId: String, context: Context? = null): List<Programme> {
+        return try {
+            client.from("programmes")
+                .select {
+                    filter {
+                        eq("school_id", schoolId)
+                    }
                 }
-            }
-            .decodeList()
+                .decodeList()
+        } catch (e: Exception) {
+            getProgrammes(context).filter { it.schoolId == schoolId }
+        }
     }
 
-    open suspend fun getUnits(): List<AcademicUnit> {
-        return client.from("units").select().decodeList()
+    open suspend fun getUnits(context: Context? = null): List<AcademicUnit> {
+        val cached = context?.let { LocalCache.loadUnits(it) }
+        return try {
+            val remote = client.from("units").select().decodeList<AcademicUnit>()
+            context?.let { LocalCache.saveUnits(it, remote) }
+            remote
+        } catch (e: Exception) {
+            cached ?: throw e
+        }
     }
 
-    open suspend fun getProgrammeUnits(programmeId: String): List<ProgrammeUnit> {
-        return client.from("programme_units")
-            .select {
-                filter {
-                    eq("programme_id", programmeId)
+    open suspend fun getProgrammeUnits(programmeId: String, context: Context? = null): List<ProgrammeUnit> {
+        val cached = context?.let { LocalCache.loadProgrammeUnits(it, programmeId) }
+        return try {
+            val remote = client.from("programme_units")
+                .select {
+                    filter {
+                        eq("programme_id", programmeId)
+                    }
                 }
-            }
-            .decodeList()
+                .decodeList<ProgrammeUnit>()
+            context?.let { LocalCache.saveProgrammeUnits(it, programmeId, remote) }
+            remote
+        } catch (e: Exception) {
+            cached ?: throw e
+        }
     }
 
-    open suspend fun getResourcesByUnit(unitId: String): List<Resource> {
-        return client.from("resources")
-            .select {
-                filter {
-                    eq("unit_id", unitId)
+    open suspend fun getResourcesByUnit(unitId: String, context: Context? = null): List<Resource> {
+        return try {
+            val remote = client.from("resources")
+                .select {
+                    filter {
+                        eq("unit_id", unitId)
+                    }
                 }
-            }
-            .decodeList()
+                .decodeList<Resource>()
+            remote
+        } catch (e: Exception) {
+            getAllResources(context).filter { it.unitId == unitId }
+        }
     }
 
-    open suspend fun getAllResources(): List<Resource> {
-        return client.from("resources").select().decodeList()
+    open suspend fun getAllResources(context: Context? = null): List<Resource> {
+        val cached = context?.let { LocalCache.loadResources(it) }
+        return try {
+            val remote = client.from("resources").select().decodeList<Resource>()
+            context?.let { LocalCache.saveResources(it, remote) }
+            remote
+        } catch (e: Exception) {
+            cached ?: throw e
+        }
     }
 
     open suspend fun downloadResourceFile(bucket: String, filePath: String): ByteArray {

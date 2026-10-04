@@ -37,6 +37,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -51,6 +52,7 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import com.kibu.notes.data.models.AcademicUnit
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -87,6 +89,8 @@ class MainActivity : AppCompatActivity() {
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
     private var myUnitsJob: Job? = null
+    private var selectedUnit: AcademicUnit? = null
+    private var selectedUnitResources: List<Resource> = emptyList()
 
     /**
      * The last "Removed" toast, kept only so the next one can cancel it.
@@ -134,8 +138,14 @@ class MainActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
-            stack.removeLast()
-            render()
+            if (selectedUnit != null) {
+                selectedUnit = null
+                selectedUnitResources = emptyList()
+                render()
+            } else if (stack.isNotEmpty()) {
+                stack.removeLast()
+                render()
+            }
         }
     }
 
@@ -499,11 +509,25 @@ class MainActivity : AppCompatActivity() {
      */
     private fun render() {
         val here = stack.lastOrNull()
-        backCallback.isEnabled = here != null
-        // At the root the wordmark is the title, centred; inside a folder the title is the
-        // folder's name, where Android puts it, beside the back arrow. A mark is an identity
-        // and a folder name is a location, so these are two kinds of content sharing a slot
-        // rather than one element that moves.
+        val unit = selectedUnit
+
+        backCallback.isEnabled = (unit != null) || (here != null)
+
+        if (unit != null) {
+            toolbar.title = if (unit.code.isNotEmpty()) "${unit.code} - ${unit.title}" else unit.title
+            lockup.visibility = View.GONE
+            toolbar.navigationIcon = AppCompatResources.getDrawable(this, R.drawable.ic_back)
+            toolbar.navigationContentDescription = getString(R.string.back)
+            selectedProgramCard.visibility = View.GONE
+            tabLayout.visibility = View.GONE
+            viewPager.visibility = View.GONE
+            list.visibility = View.GONE
+            myUnitsView.visibility = View.VISIBLE
+            fab.show()
+            renderUnitDetailView(unit)
+            return
+        }
+
         toolbar.title = here?.label.orEmpty()
         lockup.visibility = if (here == null) View.VISIBLE else View.GONE
         toolbar.navigationIcon =
@@ -793,7 +817,7 @@ class MainActivity : AppCompatActivity() {
         myUnitsJob = CoroutineScope(Dispatchers.Main).launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    val programmes = supabaseRepository.getProgrammes()
+                    val programmes = supabaseRepository.getProgrammes(this@MainActivity)
                     val prog = programmes.find {
                         it.title.equals(selectedCourseName, ignoreCase = true) ||
                         it.code.equals(selectedCourseName, ignoreCase = true)
@@ -801,9 +825,9 @@ class MainActivity : AppCompatActivity() {
 
                     if (prog == null) return@withContext null
 
-                    val programmeUnits = supabaseRepository.getProgrammeUnits(prog.id)
-                    val allUnitsMap = supabaseRepository.getUnits().associateBy { it.id }
-                    val allResourcesMap = supabaseRepository.getAllResources().groupBy { it.unitId }
+                    val programmeUnits = supabaseRepository.getProgrammeUnits(prog.id, this@MainActivity)
+                    val allUnitsMap = supabaseRepository.getUnits(this@MainActivity).associateBy { it.id }
+                    val allResourcesMap = supabaseRepository.getAllResources(this@MainActivity).groupBy { it.unitId }
 
                     // Group by (academicYear, semester)
                     val grouped = programmeUnits.groupBy { Pair(it.academicYear, it.semester) }
@@ -885,40 +909,168 @@ class MainActivity : AppCompatActivity() {
                         setStrokeColor(ColorStateList.valueOf(
                             MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
                         ))
+                        isClickable = true
+                        isFocusable = true
+                        setOnClickListener {
+                            selectedUnit = unit
+                            render()
+                        }
                     }
 
                     val unitLayout = LinearLayout(this@MainActivity).apply {
                         orientation = LinearLayout.VERTICAL
-                        setPadding(16, 16, 16, 16)
+                        setPadding(20, 20, 20, 20)
+                    }
+
+                    val titleRow = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
                     }
 
                     val unitTitle = TextView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                         text = if (unit.code.isNotEmpty()) "${unit.code} - ${unit.title}" else unit.title
                         setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
                         setTypeface(null, Typeface.BOLD)
                         setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface))
                     }
-                    unitLayout.addView(unitTitle)
+                    titleRow.addView(unitTitle)
 
-                    if (resList.isEmpty()) {
-                        val noNotesText = TextView(this@MainActivity).apply {
-                            text = getString(R.string.no_notes_for_unit)
-                            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
-                            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
-                            setPadding(0, 8, 0, 0)
-                        }
-                        unitLayout.addView(noNotesText)
-                    } else {
-                        resList.forEach { res ->
-                            val resRow = createResourceRowView(res)
-                            unitLayout.addView(resRow)
-                        }
+                    val arrowView = TextView(this@MainActivity).apply {
+                        text = "›"
+                        textSize = 24f
+                        setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+                        setPadding(12, 0, 0, 0)
                     }
+                    titleRow.addView(arrowView)
+
+                    unitLayout.addView(titleRow)
+
+                    val countText = when (resList.size) {
+                        0 -> getString(R.string.no_notes_for_unit)
+                        1 -> getString(R.string.study_materials_one)
+                        else -> getString(R.string.study_materials_count, resList.size)
+                    }
+
+                    val countView = TextView(this@MainActivity).apply {
+                        text = countText
+                        setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                        setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+                        setPadding(0, 6, 0, 0)
+                    }
+                    unitLayout.addView(countView)
 
                     unitCard.addView(unitLayout)
                     container.addView(unitCard)
                 }
             }
+        }
+    }
+
+    private fun renderUnitDetailView(unit: AcademicUnit) {
+        val container = findViewById<ViewGroup>(R.id.myUnitsContainer) ?: return
+        container.removeAllViews()
+
+        val headerCard = MaterialCardView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(16, 16, 16, 16) }
+            cardElevation = 0f
+            strokeWidth = (1 * resources.displayMetrics.density).toInt()
+            setStrokeColor(ColorStateList.valueOf(
+                MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
+            ))
+        }
+
+        val headerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 20, 20, 20)
+        }
+
+        val unitTitle = TextView(this).apply {
+            text = if (unit.code.isNotEmpty()) "${unit.code} - ${unit.title}" else unit.title
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
+        }
+        headerLayout.addView(unitTitle)
+
+        val sectionHeader = TextView(this).apply {
+            text = getString(R.string.study_materials_header)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+            setPadding(0, 8, 0, 0)
+        }
+        headerLayout.addView(sectionHeader)
+
+        headerCard.addView(headerLayout)
+        container.addView(headerCard)
+
+        val loadingView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(48, 64, 48, 64)
+            addView(ProgressBar(context).apply { isIndeterminate = true })
+        }
+        container.addView(loadingView)
+
+        myUnitsJob?.cancel()
+        myUnitsJob = CoroutineScope(Dispatchers.Main).launch {
+            val resourceList = runCatching {
+                withContext(Dispatchers.IO) {
+                    supabaseRepository.getResourcesByUnit(unit.id, this@MainActivity)
+                }
+            }.getOrNull()
+
+            container.removeView(loadingView)
+
+            if (resourceList.isNullOrEmpty()) {
+                val emptyView = TextView(this@MainActivity).apply {
+                    text = getString(R.string.no_notes_for_unit)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                    gravity = Gravity.CENTER
+                    setPadding(48, 64, 48, 64)
+                }
+                container.addView(emptyView)
+                return@launch
+            }
+
+            val resCard = MaterialCardView(this@MainActivity).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(16, 0, 16, 24) }
+                cardElevation = 0f
+                strokeWidth = (1 * resources.displayMetrics.density).toInt()
+                setStrokeColor(ColorStateList.valueOf(
+                    MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
+                ))
+            }
+
+            val resLayout = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 16, 16, 16)
+            }
+
+            resourceList.forEachIndexed { index, res ->
+                val resRow = createResourceRowView(res)
+                resLayout.addView(resRow)
+
+                if (index < resourceList.size - 1) {
+                    val divider = View(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            (1 * resources.displayMetrics.density).toInt()
+                        ).apply { setMargins(0, 8, 0, 8) }
+                        setBackgroundColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant))
+                    }
+                    resLayout.addView(divider)
+                }
+            }
+
+            resCard.addView(resLayout)
+            container.addView(resCard)
         }
     }
 

@@ -191,6 +191,23 @@
                     android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
         </ScrollView>
+
+        <!-- Unit Details / Notes View (Opened when a unit is tapped). -->
+        <ScrollView
+            android:id="@+id/unitDetailsView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/unitDetailsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:orientation="vertical"
+                android:paddingBottom="88dp" />
+        </ScrollView>
     </LinearLayout>
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton

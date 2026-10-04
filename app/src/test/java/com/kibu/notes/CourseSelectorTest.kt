@@ -24,7 +24,7 @@ class CourseSelectorTest {
     private class FakeSupabaseRepository : SupabaseRepository() {
         var throwError = false
 
-        override suspend fun getSchools(): List<School> {
+        override suspend fun getSchools(context: Context?): List<School> {
             if (throwError) throw RuntimeException("Network error")
             return listOf(
                 School(id = "s1", name = "School of Computing", code = "SCI"),
@@ -32,7 +32,7 @@ class CourseSelectorTest {
             )
         }
 
-        override suspend fun getProgrammes(): List<Programme> {
+        override suspend fun getProgrammes(context: Context?): List<Programme> {
             if (throwError) throw RuntimeException("Network error")
             return listOf(
                 Programme(id = "p1", schoolId = "s1", title = "Computer Science", code = "CS"),

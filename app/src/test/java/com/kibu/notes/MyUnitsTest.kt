@@ -63,12 +63,14 @@ class MyUnitsTest {
             )
         )
 
-        override suspend fun getSchools() = schoolsList
-        override suspend fun getProgrammes() = programmesList
-        override suspend fun getUnits() = unitsList
-        override suspend fun getProgrammeUnits(programmeId: String) =
+        override suspend fun getSchools(context: Context?) = schoolsList
+        override suspend fun getProgrammes(context: Context?) = programmesList
+        override suspend fun getUnits(context: Context?) = unitsList
+        override suspend fun getProgrammeUnits(programmeId: String, context: Context?) =
             programmeUnitsList.filter { it.programmeId == programmeId }
-        override suspend fun getAllResources() = resourcesList
+        override suspend fun getResourcesByUnit(unitId: String, context: Context?) =
+            resourcesList.filter { it.unitId == unitId }
+        override suspend fun getAllResources(context: Context?) = resourcesList
 
         override suspend fun downloadResource(context: Context, resource: Resource): File {
             val file = getLocalResourceFile(context, resource)

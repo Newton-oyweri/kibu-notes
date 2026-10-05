@@ -169,30 +169,24 @@
 
     </LinearLayout>
 
-    <!-- Floating Action Buttons Container -->
-    <LinearLayout
-        android:id="@+id/fabContainer"
+    <!-- Native Explicit Floating Action Buttons -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/trendsFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="20dp"
+        android:layout_marginEnd="168dp"
+        android:text="Trends"
+        tools:ignore="HardcodedText" />
+
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/openFab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/trendsFab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="12dp"
-            android:text="Trends"
-            tools:ignore="HardcodedText" />
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/openFab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/open_a_file" />
-    </LinearLayout>
+        android:text="@string/open_a_file" />
 
     <!-- Kibu Trends Full-Screen Overlay Container -->
     <LinearLayout
@@ -237,14 +231,49 @@
             android:textColor="?attr/colorOnSurfaceVariant"
             tools:ignore="HardcodedText" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/kibuTrendsRecyclerView"
+        <!-- Scrollable Promo Display -->
+        <ScrollView
+            android:id="@+id/kibuTrendsScrollView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="88dp" />
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/trendsLoadingProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="32dp"
+                    android:indeterminate="true" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/trendsImageCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="2dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:strokeWidth="1dp">
+
+                    <ImageView
+                        android:id="@+id/trendsPromoImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="Kibu Trends Promo"
+                        android:scaleType="fitCenter"
+                        tools:ignore="HardcodedText" />
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </ScrollView>
     </LinearLayout>
 
 </FrameLayout>

@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
@@ -23,6 +25,7 @@ import android.view.ViewAnimationUtils
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -60,6 +63,7 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.kibu.notes.data.models.AcademicUnit
 import java.io.File
+import java.net.URL
 import java.util.Locale
 import java.util.concurrent.Executors
 
@@ -94,10 +98,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
     private lateinit var kibuTrendsOverlay: View
-    private lateinit var kibuTrendsRecyclerView: RecyclerView
-    private lateinit var fabContainer: View
-    private lateinit var trendsFab: View
+    private lateinit var kibuTrendsScrollView: ScrollView
+    private lateinit var trendsPromoImage: ImageView
+    private lateinit var trendsLoadingProgress: View
+    private lateinit var trendsImageCard: View
+    private lateinit var trendsFab: ExtendedFloatingActionButton
     private var isKibuTrendsOpen = false
+    private var trendsBitmap: Bitmap? = null
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -303,7 +310,6 @@ class MainActivity : AppCompatActivity() {
         val openFile = View.OnClickListener { openDocument.launch(arrayOf("*/*")) }
         fab.setOnClickListener(openFile)
 
-        fabContainer = findViewById(R.id.fabContainer)
         trendsFab = findViewById(R.id.trendsFab)
         trendsFab.setOnClickListener { v ->
             val location = IntArray(2)
@@ -321,35 +327,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         kibuTrendsOverlay = findViewById(R.id.kibuTrendsOverlay)
-        kibuTrendsRecyclerView = findViewById(R.id.kibuTrendsRecyclerView)
+        kibuTrendsScrollView = findViewById(R.id.kibuTrendsScrollView)
+        trendsPromoImage = findViewById(R.id.trendsPromoImage)
+        trendsLoadingProgress = findViewById(R.id.trendsLoadingProgress)
+        trendsImageCard = findViewById(R.id.trendsImageCard)
 
-        kibuTrendsRecyclerView.layoutManager = LinearLayoutManager(this)
-        kibuTrendsRecyclerView.adapter = TrendsAdapter(
-            getSampleTrendPosts(),
-            onLikeClicked = { },
-            onShareClicked = { post ->
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, "${post.authorName} on Kibu Trends: \"${post.content}\"")
-                    type = "text/plain"
-                }
-                startActivity(Intent.createChooser(sendIntent, "Share Kibu Trend"))
-            }
-        )
-
-        // Pull down gesture in Kibu Trends feed to return to Kibu Notes
-        kibuTrendsRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            private var lastTrigger = 0L
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (dy < 0 && !recyclerView.canScrollVertically(-1)) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTrigger > 1200) {
-                        lastTrigger = now
-                        closeKibuTrends()
-                    }
+        var lastPullTime = 0L
+        kibuTrendsScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            if (scrollY <= 0) {
+                val now = System.currentTimeMillis()
+                if (now - lastPullTime > 1200) {
+                    lastPullTime = now
+                    closeKibuTrends()
                 }
             }
-        })
+        }
 
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
@@ -359,7 +351,11 @@ class MainActivity : AppCompatActivity() {
         if (isKibuTrendsOpen) return
         isKibuTrendsOpen = true
         backCallback.isEnabled = true
-        fabContainer.visibility = View.GONE
+
+        if (::trendsFab.isInitialized) trendsFab.hide()
+        if (::fab.isInitialized) fab.hide()
+
+        loadTrendsPromoImage()
 
         kibuTrendsOverlay.post {
             val cx = if (originX > 0) originX else kibuTrendsOverlay.width / 2
@@ -390,13 +386,46 @@ class MainActivity : AppCompatActivity() {
             anim.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     kibuTrendsOverlay.visibility = View.INVISIBLE
-                    fabContainer.visibility = View.VISIBLE
+                    if (::trendsFab.isInitialized) trendsFab.show()
+                    if (::fab.isInitialized) fab.show()
                 }
             })
             anim.start()
         } else {
             kibuTrendsOverlay.visibility = View.INVISIBLE
-            fabContainer.visibility = View.VISIBLE
+            if (::trendsFab.isInitialized) trendsFab.show()
+            if (::fab.isInitialized) fab.show()
+        }
+    }
+
+    private fun loadTrendsPromoImage() {
+        if (trendsBitmap != null) {
+            trendsPromoImage.setImageBitmap(trendsBitmap)
+            trendsLoadingProgress.visibility = View.GONE
+            trendsImageCard.visibility = View.VISIBLE
+            return
+        }
+        trendsLoadingProgress.visibility = View.VISIBLE
+        trendsImageCard.visibility = View.GONE
+        CoroutineScope(Dispatchers.IO).launch {
+            val bmp = runCatching {
+                val url = URL("https://pub-937848871caa438bb7b53c74c18ed261.r2.dev/kibu-notes.png")
+                val conn = url.openConnection()
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.getInputStream().use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+            }.getOrNull()
+
+            withContext(Dispatchers.Main) {
+                if (bmp != null) {
+                    trendsBitmap = bmp
+                    trendsPromoImage.setImageBitmap(bmp)
+                    trendsLoadingProgress.visibility = View.GONE
+                    trendsImageCard.visibility = View.VISIBLE
+                }
+            }
         }
     }
 

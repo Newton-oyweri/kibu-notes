@@ -1,5 +1,7 @@
 package com.kibu.notes
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,7 +19,9 @@ import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
+import android.view.ViewAnimationUtils
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -26,6 +30,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.Resource
+import com.kibu.notes.data.models.TrendPost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +47,7 @@ import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.MaterialToolbar
@@ -87,6 +93,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
+    private lateinit var kibuTrendsOverlay: View
+    private lateinit var kibuTrendsRecyclerView: RecyclerView
+    private lateinit var fabContainer: View
+    private lateinit var trendsFab: View
+    private var isKibuTrendsOpen = false
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -140,6 +151,10 @@ class MainActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
+            if (isKibuTrendsOpen) {
+                closeKibuTrends()
+                return
+            }
             if (stack.isNotEmpty()) {
                 stack.removeLast()
                 render()
@@ -288,6 +303,14 @@ class MainActivity : AppCompatActivity() {
         val openFile = View.OnClickListener { openDocument.launch(arrayOf("*/*")) }
         fab.setOnClickListener(openFile)
 
+        fabContainer = findViewById(R.id.fabContainer)
+        trendsFab = findViewById(R.id.trendsFab)
+        trendsFab.setOnClickListener { v ->
+            val location = IntArray(2)
+            v.getLocationInWindow(location)
+            openKibuTrends(location[0] + v.width / 2, location[1] + v.height / 2)
+        }
+
         selectedProgramCard = findViewById(R.id.selectedProgramCard)
         selectedProgramText = findViewById(R.id.selectedProgramText)
         selectedPeriodText = findViewById(R.id.selectedPeriodText)
@@ -297,8 +320,129 @@ class MainActivity : AppCompatActivity() {
             showPeriodSelectorOrCourseSelector()
         }
 
+        kibuTrendsOverlay = findViewById(R.id.kibuTrendsOverlay)
+        kibuTrendsRecyclerView = findViewById(R.id.kibuTrendsRecyclerView)
+
+        kibuTrendsRecyclerView.layoutManager = LinearLayoutManager(this)
+        kibuTrendsRecyclerView.adapter = TrendsAdapter(
+            getSampleTrendPosts(),
+            onLikeClicked = { },
+            onShareClicked = { post ->
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, "${post.authorName} on Kibu Trends: \"${post.content}\"")
+                    type = "text/plain"
+                }
+                startActivity(Intent.createChooser(sendIntent, "Share Kibu Trend"))
+            }
+        )
+
+        // Pull down gesture in Kibu Trends feed to return to Kibu Notes
+        kibuTrendsRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            private var lastTrigger = 0L
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy < 0 && !recyclerView.canScrollVertically(-1)) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTrigger > 1200) {
+                        lastTrigger = now
+                        closeKibuTrends()
+                    }
+                }
+            }
+        })
+
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
+    }
+
+    private fun openKibuTrends(originX: Int = -1, originY: Int = -1) {
+        if (isKibuTrendsOpen) return
+        isKibuTrendsOpen = true
+        backCallback.isEnabled = true
+        fabContainer.visibility = View.GONE
+
+        kibuTrendsOverlay.post {
+            val cx = if (originX > 0) originX else kibuTrendsOverlay.width / 2
+            val cy = if (originY > 0) originY else kibuTrendsOverlay.height
+            val finalRadius = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+
+            val anim = ViewAnimationUtils.createCircularReveal(kibuTrendsOverlay, cx, cy, 0f, finalRadius)
+            anim.duration = 450
+            anim.interpolator = AccelerateDecelerateInterpolator()
+            kibuTrendsOverlay.visibility = View.VISIBLE
+            anim.start()
+        }
+    }
+
+    private fun closeKibuTrends(originX: Int = -1, originY: Int = -1) {
+        if (!isKibuTrendsOpen) return
+        isKibuTrendsOpen = false
+        backCallback.isEnabled = stack.isNotEmpty()
+
+        val cx = if (originX > 0) originX else kibuTrendsOverlay.width / 2
+        val cy = if (originY > 0) originY else kibuTrendsOverlay.height
+        val initialRadius = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+
+        if (kibuTrendsOverlay.isAttachedToWindow) {
+            val anim = ViewAnimationUtils.createCircularReveal(kibuTrendsOverlay, cx, cy, initialRadius, 0f)
+            anim.duration = 400
+            anim.interpolator = AccelerateDecelerateInterpolator()
+            anim.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    kibuTrendsOverlay.visibility = View.INVISIBLE
+                    fabContainer.visibility = View.VISIBLE
+                }
+            })
+            anim.start()
+        } else {
+            kibuTrendsOverlay.visibility = View.INVISIBLE
+            fabContainer.visibility = View.VISIBLE
+        }
+    }
+
+    private fun getSampleTrendPosts(): List<TrendPost> {
+        return listOf(
+            TrendPost(
+                id = "1",
+                authorName = "Alex Chen",
+                authorHandle = "@alex_c",
+                content = "Just uploaded comprehensive summary notes for CS201 Data Structures & Algorithms! Check out the My Units tab to download the PDF.",
+                category = "Notes",
+                timeAgo = "10m ago",
+                likesCount = 24,
+                commentsCount = 5
+            ),
+            TrendPost(
+                id = "2",
+                authorName = "Kibu Academic Affairs",
+                authorHandle = "@kibu_official",
+                content = "📢 Semester End Examinations Schedule for Academic Year 2024/2025 has been published. Make sure to download past papers from Kibu Notes!",
+                category = "Announcement",
+                timeAgo = "1h ago",
+                likesCount = 89,
+                commentsCount = 18
+            ),
+            TrendPost(
+                id = "3",
+                authorName = "Sarah Jenkins",
+                authorHandle = "@sarah_j",
+                content = "Anyone studying for Organic Chemistry II midterm tomorrow? Group study session happening at the campus library room 3B!",
+                category = "Study Group",
+                timeAgo = "3h ago",
+                likesCount = 42,
+                commentsCount = 12
+            ),
+            TrendPost(
+                id = "4",
+                authorName = "David Omari",
+                authorHandle = "@domari",
+                content = "Pro tip: Use the search feature in Kibu Notes to find past exam solutions fast! Saved me so much time before finals.",
+                category = "Tips",
+                timeAgo = "5h ago",
+                likesCount = 67,
+                commentsCount = 9
+            )
+        )
     }
 
     /**

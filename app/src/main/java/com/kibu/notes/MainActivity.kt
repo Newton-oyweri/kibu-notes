@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progress: LinearProgressIndicator
     private lateinit var list: RecyclerView
     private lateinit var myUnitsView: View
+    private lateinit var myUnitsContainer: LinearLayout
     private lateinit var fab: ExtendedFloatingActionButton
     private lateinit var tabLayout: TabLayout
     lateinit var viewPager: ViewPager2
@@ -221,8 +222,25 @@ class MainActivity : AppCompatActivity() {
         tabLayout = findViewById(R.id.tabLayout)
         viewPager = findViewById(R.id.viewPager)
 
-        // Built once here rather than on every render: courses do not change while it is running.
-        myUnitsView = findViewById(R.id.myUnitsView)
+        myUnitsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipToPadding = false
+            setPadding(0, 0, 0, (88 * resources.displayMetrics.density).toInt())
+        }
+        myUnitsView = ScrollView(this).apply {
+            isFillViewport = true
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(
+                myUnitsContainer,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
 
         recentsList = RecyclerView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -256,8 +274,8 @@ class MainActivity : AppCompatActivity() {
             adapter = foldersAdapter
         }
 
-        myUnitsView = findViewById(R.id.myUnitsView)
         viewPager.adapter = HomePagerAdapter(listOf(myUnitsView, recentsList, foldersList))
+        viewPager.offscreenPageLimit = 2
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             tab.text = when (position) {
                 0 -> getString(R.string.tab_my_units)
@@ -778,14 +796,20 @@ class MainActivity : AppCompatActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val view = views[viewType]
             (view.parent as? ViewGroup)?.removeView(view)
+            view.layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             return object : RecyclerView.ViewHolder(view) {}
         }
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {}
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            holder.itemView.requestLayout()
+        }
         override fun getItemViewType(position: Int): Int = position
     }
 
     private fun loadMyUnits(forceReload: Boolean = false) {
-        val container = findViewById<ViewGroup>(R.id.myUnitsContainer) ?: return
+        val container = if (::myUnitsContainer.isInitialized) myUnitsContainer else (findViewById<ViewGroup>(R.id.myUnitsContainer) ?: return)
         val selectedCourseName = Settings.getSelectedCourse(this)
 
         if (selectedCourseName.isNullOrEmpty()) {
@@ -1024,6 +1048,8 @@ class MainActivity : AppCompatActivity() {
                     container.addView(unitCard)
                 }
             }
+            container.requestLayout()
+            myUnitsView.requestLayout()
         }
     }
 

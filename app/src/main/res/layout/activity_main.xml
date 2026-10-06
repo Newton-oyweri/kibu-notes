@@ -219,17 +219,36 @@
                 tools:ignore="HardcodedText" />
         </FrameLayout>
 
-        <!-- Pull down indicator hint -->
-        <TextView
-            android:id="@+id/trendsPullHint"
+        <!-- Pull down indicator container -->
+        <LinearLayout
+            android:id="@+id/trendsPullContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center"
-            android:paddingVertical="8dp"
-            android:text="↓ Pull down to return to Kibu Notes"
-            android:textAppearance="?attr/textAppearanceLabelSmall"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            tools:ignore="HardcodedText" />
+            android:orientation="vertical"
+            android:paddingTop="10dp"
+            android:paddingBottom="8dp">
+
+            <!-- Drag Handle Bar -->
+            <View
+                android:id="@+id/trendsDragHandle"
+                android:layout_width="36dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/shape_drag_handle" />
+
+            <TextView
+                android:id="@+id/trendsPullHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/trends_pull_hint"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
 
         <!-- Scrollable Promo Display -->
         <ScrollView

@@ -12,6 +12,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -20,10 +21,14 @@ import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewAnimationUtils
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -53,6 +58,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.R as MaterialR
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
@@ -66,6 +72,7 @@ import java.io.File
 import java.net.URL
 import java.util.Locale
 import java.util.concurrent.Executors
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -209,6 +216,10 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_rate).isVisible = installedFromPlay()
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_search -> {
+                    startActivity(Intent(this, SearchActivity::class.java))
+                    true
+                }
                 R.id.action_rate -> { openPlayListing(); true }
                 R.id.action_share_app -> { shareGander(); true }
                 R.id.action_select_course -> {
@@ -332,16 +343,12 @@ class MainActivity : AppCompatActivity() {
         trendsLoadingProgress = findViewById(R.id.trendsLoadingProgress)
         trendsImageCard = findViewById(R.id.trendsImageCard)
 
-        var lastPullTime = 0L
-        kibuTrendsScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (scrollY <= 0) {
-                val now = System.currentTimeMillis()
-                if (now - lastPullTime > 1200) {
-                    lastPullTime = now
-                    closeKibuTrends()
-                }
-            }
+        val trendsPullContainer = findViewById<View>(R.id.trendsPullContainer)
+        trendsPullContainer?.setOnClickListener {
+            closeKibuTrends()
         }
+
+        setupPullToDismissGesture()
 
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
@@ -354,6 +361,14 @@ class MainActivity : AppCompatActivity() {
 
         if (::trendsFab.isInitialized) trendsFab.hide()
         if (::fab.isInitialized) fab.hide()
+
+        kibuTrendsOverlay.alpha = 1f
+        kibuTrendsScrollView.translationY = 0f
+        kibuTrendsScrollView.scaleX = 1f
+        kibuTrendsScrollView.scaleY = 1f
+        kibuTrendsScrollView.alpha = 1f
+        val hintView = findViewById<TextView>(R.id.trendsPullHint)
+        hintView?.setText(R.string.trends_pull_hint)
 
         loadTrendsPromoImage()
 
@@ -385,17 +400,133 @@ class MainActivity : AppCompatActivity() {
             anim.interpolator = AccelerateDecelerateInterpolator()
             anim.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    kibuTrendsOverlay.visibility = View.INVISIBLE
-                    if (::trendsFab.isInitialized) trendsFab.show()
-                    if (::fab.isInitialized) fab.show()
+                    closeKibuTrendsDirectly()
                 }
             })
             anim.start()
         } else {
-            kibuTrendsOverlay.visibility = View.INVISIBLE
-            if (::trendsFab.isInitialized) trendsFab.show()
-            if (::fab.isInitialized) fab.show()
+            closeKibuTrendsDirectly()
         }
+    }
+
+    private fun closeKibuTrendsDirectly() {
+        isKibuTrendsOpen = false
+        backCallback.isEnabled = stack.isNotEmpty()
+
+        kibuTrendsOverlay.visibility = View.INVISIBLE
+        kibuTrendsOverlay.alpha = 1f
+        kibuTrendsScrollView.translationY = 0f
+        kibuTrendsScrollView.scaleX = 1f
+        kibuTrendsScrollView.scaleY = 1f
+        kibuTrendsScrollView.alpha = 1f
+
+        val hintView = findViewById<TextView>(R.id.trendsPullHint)
+        hintView?.setText(R.string.trends_pull_hint)
+
+        if (::trendsFab.isInitialized) trendsFab.show()
+        if (::fab.isInitialized) fab.show()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupPullToDismissGesture() {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var startY = 0f
+        var startX = 0f
+        var isDraggingDown = false
+
+        val touchListener = View.OnTouchListener { view, event ->
+            if (!isKibuTrendsOpen) return@OnTouchListener false
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = event.rawY
+                    startX = event.rawX
+                    isDraggingDown = false
+                    false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = event.rawY - startY
+                    val dx = event.rawX - startX
+
+                    if (!isDraggingDown) {
+                        if (kibuTrendsScrollView.scrollY <= 0 && dy > touchSlop && dy > abs(dx)) {
+                            isDraggingDown = true
+                            view.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                    }
+
+                    if (isDraggingDown) {
+                        val dragOffset = (dy - touchSlop).coerceAtLeast(0f)
+                        val dampedOffset = dragOffset * 0.75f
+
+                        kibuTrendsScrollView.translationY = dampedOffset
+
+                        val maxDrag = (kibuTrendsOverlay.height * 0.4f).coerceAtLeast(100f)
+                        val progress = (dampedOffset / maxDrag).coerceIn(0f, 1f)
+
+                        val scale = 1f - (progress * 0.12f)
+                        kibuTrendsScrollView.scaleX = scale
+                        kibuTrendsScrollView.scaleY = scale
+
+                        kibuTrendsOverlay.alpha = 1f - (progress * 0.35f)
+
+                        val dismissThreshold = 130 * resources.displayMetrics.density
+                        val hintView = findViewById<TextView>(R.id.trendsPullHint)
+                        if (dampedOffset > dismissThreshold) {
+                            hintView?.setText(R.string.trends_release_hint)
+                        } else {
+                            hintView?.setText(R.string.trends_pull_hint)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isDraggingDown) {
+                        isDraggingDown = false
+                        val currentTranslation = kibuTrendsScrollView.translationY
+                        val dismissThreshold = 130 * resources.displayMetrics.density
+                        val hintView = findViewById<TextView>(R.id.trendsPullHint)
+
+                        if (currentTranslation > dismissThreshold) {
+                            val targetY = (kibuTrendsOverlay.height * 1.2f).coerceAtLeast(1200f)
+                            kibuTrendsScrollView.animate()
+                                .translationY(targetY)
+                                .alpha(0f)
+                                .setDuration(220)
+                                .setInterpolator(AccelerateInterpolator())
+                                .withEndAction {
+                                    closeKibuTrendsDirectly()
+                                }
+                                .start()
+                        } else {
+                            kibuTrendsScrollView.animate()
+                                .translationY(0f)
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .alpha(1f)
+                                .setDuration(300)
+                                .setInterpolator(OvershootInterpolator(1.1f))
+                                .start()
+                            kibuTrendsOverlay.animate()
+                                .alpha(1f)
+                                .setDuration(200)
+                                .start()
+                            hintView?.setText(R.string.trends_pull_hint)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                else -> false
+            }
+        }
+
+        kibuTrendsScrollView.setOnTouchListener(touchListener)
+        trendsImageCard.setOnTouchListener(touchListener)
+        trendsPromoImage.setOnTouchListener(touchListener)
     }
 
     private fun loadTrendsPromoImage() {
@@ -409,7 +540,7 @@ class MainActivity : AppCompatActivity() {
         trendsImageCard.visibility = View.GONE
         CoroutineScope(Dispatchers.IO).launch {
             val bmp = runCatching {
-                val url = URL("https://pub-937848871caa438bb7b53c74c18ed261.r2.dev/kibu-notes.png")
+                val url = URL("https://pub-937848871caa438bb7b53c74c18ed261.r2.dev/charity.jpg")
                 val conn = url.openConnection()
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
@@ -857,7 +988,7 @@ class MainActivity : AppCompatActivity() {
                                     .setNegativeButton(android.R.string.cancel, null)
                                     .create()
                                 dialog.show()
-                                listOf(
+                                listOf<Pair<Int, Int>>(
                                     AlertDialog.BUTTON_POSITIVE to
                                         com.google.android.material.R.attr.colorError,
                                     AlertDialog.BUTTON_NEGATIVE to

@@ -177,4 +177,17 @@
     <string name="url_site" translatable="false">https://arjun.maniyani.com/gander/</string>
     <!-- Only reached when the Play Store app will not open the listing itself -->
     <string name="url_play_listing" translatable="false">https://play.google.com/store/apps/details?id=%1$s</string>
+    <string name="trends_pull_hint">↓ Pull down to return to Kibu Notes</string>
+    <string name="trends_release_hint">↑ Release to return to Kibu Notes</string>
+    <string name="search_hint">Search notes, units, files &amp; folders…</string>
+    <string name="search_empty_title">Search Kibu Notes &amp; Folders</string>
+    <string name="search_empty_subtitle">Type to recursively search study notes, course units, and local folders.</string>
+    <string name="search_no_results_title">No results found</string>
+    <string name="search_no_results_subtitle">No matches found for \"%1$s\"</string>
+    <string name="search_header_notes">Notes &amp; Course Units</string>
+    <string name="search_header_recents">Recent Files</string>
+    <string name="search_header_files">Local Folders &amp; Files</string>
+    <string name="search_toast_downloading">Downloading %1$s…</string>
+    <string name="search_toast_download_failed">Failed to download study material</string>
+    <string name="search_toast_unable_to_open">Unable to open file</string>
 </resources>

@@ -61,7 +61,7 @@ class ListingTest {
     fun theMeasuredRatiosAreStillWhatTheCommentSays() {
         val documented = mapOf(
             "PDF" to 6.54, "PPT" to 5.20, "FILE" to 4.65,
-            "DIR" to 4.90, "ADD" to 6.54, "3D" to 7.91,
+            "DIR" to 5.67, "ADD" to 6.57, "3D" to 7.91,
         )
         documented.forEach { (label, expected) ->
             assertThat(contrastWithWhite(ALL_BADGES.getValue(label)))

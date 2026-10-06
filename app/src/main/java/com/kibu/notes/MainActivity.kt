@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lockup: View
     private lateinit var progress: LinearProgressIndicator
     private lateinit var list: RecyclerView
-    private lateinit var myUnitsView: View
+    internal lateinit var myUnitsView: View
     private lateinit var myUnitsContainer: LinearLayout
     private lateinit var fab: ExtendedFloatingActionButton
     private lateinit var tabLayout: TabLayout
@@ -261,6 +261,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 0, 0, (88 * resources.displayMetrics.density).toInt())
         }
         myUnitsView = ScrollView(this).apply {
+            id = R.id.myUnitsView
             isFillViewport = true
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,

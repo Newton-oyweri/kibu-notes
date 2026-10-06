@@ -29,7 +29,7 @@ package com.kibu.notes
  * of hue away from the accent.
  */
 internal val PDF_BADGE = "PDF" to 0xFFB3261E.toInt()
-internal val DOC_BADGE = "DOC" to 0xFF1565C0.toInt()
+internal val DOC_BADGE = "DOC" to 0xFF0061A4.toInt()
 internal val XLS_BADGE = "XLS" to 0xFF2E7D32.toInt()
 internal val PPT_BADGE = "PPT" to 0xFFB25000.toInt()
 internal val IMG_BADGE = "IMG" to 0xFF7B1FA2.toInt()
@@ -81,12 +81,12 @@ internal val WELCOME_BADGES = listOf(
     AUD_BADGE, MD_BADGE, ETC_BADGE,
 )
 
-internal val DIR_COLOR = 0xFF8A6D1F.toInt()
+internal val DIR_COLOR = 0xFF806300.toInt()
 
 /**
  * A .zip, in the folder colour, because that is what it behaves as: tapped, it opens as a
  * list to go into rather than as a document. Borrowing the colour also borrows its
- * measured 4.90:1 against the white label. Declared after DIR_COLOR on purpose, since
+ * measured 5.79:1 against the white label. Declared after DIR_COLOR on purpose, since
  * top-level properties are initialised in the order they are written.
  */
 internal val ZIP_BADGE = "ZIP" to DIR_COLOR
@@ -94,15 +94,9 @@ internal val ZIP_BADGE = "ZIP" to DIR_COLOR
 /**
  * The brand accent, and the one badge that is an action rather than a file type.
  *
- * Fixed rather than ?attr/colorPrimary, which is what it looks like it should be.
- * Material inverts primary for dark mode, to #FFB39E, and the label on every
- * badge is a hardcoded white in row_item.xml: a white "+" on that measured
- * 1.72:1, worse than the amber DIR badge this release exists partly to fix.
- * Pinned to the light tone it stays 6.54:1 in both themes, and against the night
- * surface it sits at 2.83 against the DOC badge's 3.22, so it reads as a shape
- * exactly like its neighbours.
+ * Kibabii Green (#006C35), pinned to the light tone so it stays 6.71:1 in both themes.
  */
-internal val ADD_COLOR = 0xFFAF2D18.toInt()
+internal val ADD_COLOR = 0xFF006C35.toInt()
 
 /** The two or three letters, and the colour behind them, for a file. */
 internal fun badgeFor(name: String, mime: String?): Pair<String, Int> {

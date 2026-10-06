@@ -10,10 +10,10 @@
  * pdf.html, pptx.html and imgweb.html paint their own and are still left alone.
  */
 :root {
-  --vw-ground: #ECE8DF;
+  --vw-ground: #EEF1EC;
   --vw-card: #ffffff;
-  --vw-ink: #1E1B15;
-  --vw-accent: #af2d18;
+  --vw-ink: #191C19;
+  --vw-accent: #006C35;
   --vw-accent-ink: #ffffff;
   --vw-error: #fdecea;
   --vw-error-ink: #8c1d18;
@@ -64,7 +64,7 @@ body {
      something such an engine can read, so every token here is preceded by the literal
      it resolves to in the light theme. An engine that understands var() takes the
      second declaration; one that does not drops it and keeps the first. */
-  background: #ECE8DF;
+  background: #FAFDF7;
   background: var(--vw-ground);
 }
 
@@ -195,11 +195,11 @@ body {
  */
 @media (prefers-color-scheme: dark) {
   :root {
-    --vw-ground: #17130A;
-    --vw-card: #2D2A23;
-    --vw-ink: #E7E2D9;
-    --vw-accent: #FFB39E;
-    --vw-accent-ink: #650B00;
+    --vw-ground: #101411;
+    --vw-card: #272B27;
+    --vw-ink: #E1E3DC;
+    --vw-accent: #88DC95;
+    --vw-accent-ink: #003915;
     --vw-error: #8C1D18;
     --vw-error-ink: #F9DEDC;
     --vw-shadow: rgba(0, 0, 0, 0.5);

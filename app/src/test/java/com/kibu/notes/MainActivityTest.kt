@@ -103,7 +103,7 @@ class MainActivityTest {
         get().findViewById(R.id.list)
 
     private fun ActivityController<MainActivity>.welcome(): View =
-        get().findViewById(R.id.myUnitsView)
+        get().myUnitsView
 
     private fun ActivityController<MainActivity>.recentsTitles(): List<String> {
         val rv = get().recentsList

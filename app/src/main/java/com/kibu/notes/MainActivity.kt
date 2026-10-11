@@ -21,6 +21,7 @@ import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.view.Gravity
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewAnimationUtils
@@ -112,6 +113,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var trendsFab: ExtendedFloatingActionButton
     private var isKibuTrendsOpen = false
     private var trendsBitmap: Bitmap? = null
+    private lateinit var page2Screen: View
+    private lateinit var gestureDetector: GestureDetector
+    private var isPage2Open = false
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -203,6 +207,34 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
+
+        page2Screen = findViewById(R.id.page2Screen)
+        val page2Toolbar = findViewById<MaterialToolbar>(R.id.page2Toolbar)
+        page2Toolbar.setNavigationOnClickListener { closePage2() }
+
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 != null) {
+                    val diffX = e2.x - e1.x
+                    val diffY = e2.y - e1.y
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                        if (diffX > 0 && !isPage2Open) {
+                            openPage2()
+                            return true
+                        } else if (diffX < 0 && isPage2Open) {
+                            closePage2()
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+        })
 
         toolbar = findViewById(R.id.toolbar)
         lockup = findViewById(R.id.lockup)
@@ -1094,6 +1126,32 @@ class MainActivity : AppCompatActivity() {
             )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
         return name ?: id.substringAfterLast(':').ifEmpty { id }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        if (ev != null && ::gestureDetector.isInitialized && gestureDetector.onTouchEvent(ev)) {
+            return true
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun openPage2() {
+        if (isPage2Open) return
+        isPage2Open = true
+        page2Screen.visibility = View.VISIBLE
+        page2Screen.translationX = -resources.displayMetrics.widthPixels.toFloat()
+        page2Screen.animate().translationX(0f).setDuration(300).start()
+    }
+
+    private fun closePage2() {
+        if (!isPage2Open) return
+        isPage2Open = false
+        page2Screen.animate().translationX(-resources.displayMetrics.widthPixels.toFloat())
+            .setDuration(300)
+            .withEndAction {
+                page2Screen.visibility = View.GONE
+            }
+            .start()
     }
 
     private class HomePagerAdapter(private val views: List<View>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {

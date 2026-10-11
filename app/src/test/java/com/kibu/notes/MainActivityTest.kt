@@ -6,10 +6,13 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ApplicationProvider
@@ -280,6 +283,24 @@ class MainActivityTest {
         controller.pause()
 
         assertThat(rows.filter { it.isPressed }).isEmpty()
+    }
+
+    @Test
+    fun swipingLeftToRightOpensPage2() {
+        val controller = home()
+        val activity = controller.get()
+        val page2Screen = activity.findViewById<View>(R.id.page2Screen)
+        assertThat(page2Screen).isNotNull()
+        assertThat(page2Screen.visibility).isEqualTo(View.GONE)
+
+        val down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 100f, 0)
+        val move = MotionEvent.obtain(0, 50, MotionEvent.ACTION_MOVE, 300f, 100f, 0)
+        val up = MotionEvent.obtain(0, 100, MotionEvent.ACTION_UP, 300f, 100f, 0)
+        activity.dispatchTouchEvent(down)
+        activity.dispatchTouchEvent(move)
+        activity.dispatchTouchEvent(up)
+        shadowOf(context.mainLooper).idle()
+        assertThat(page2Screen.visibility).isEqualTo(View.VISIBLE)
     }
 
     // ---------------------------------------------------------------

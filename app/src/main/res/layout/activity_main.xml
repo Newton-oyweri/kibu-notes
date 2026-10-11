@@ -6,8 +6,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Main App Screen -->
     <LinearLayout
-        android:id="@+id/mainTabContainer"
+        android:id="@+id/mainAppScreen"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
@@ -293,6 +294,41 @@
 
             </LinearLayout>
         </ScrollView>
+    </LinearLayout>
+
+    <!-- Page 2 Full Screen -->
+    <LinearLayout
+        android:id="@+id/page2Screen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/colorSurface"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="vertical"
+        android:translationX="-1000dp"
+        android:visibility="gone">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/page2Toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_back"
+            app:title="@string/tab_page_2"
+            app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="@string/tab_page_2"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </FrameLayout>
     </LinearLayout>
 
 </FrameLayout>

@@ -10,6 +10,7 @@
     <string name="tab_my_units">My Units</string>
     <string name="tab_recent_files">Recent Files</string>
     <string name="tab_folders">Folders</string>
+    <string name="tab_page_2">Page 2</string>
     <string name="loading_units_and_notes">Loading units and notes…</string>
     <string name="failed_to_load_units">Failed to load units from database</string>
     <string name="no_course_selected">No course or program selected yet.</string>

@@ -12,6 +12,7 @@ import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -146,19 +147,46 @@ open class SupabaseRepository {
         return file.exists() && file.length() > 0
     }
 
+    companion object {
+        const val R2_PUBLIC_BASE_URL = "https://pub-937848871caa438bb7b53c74c18ed261.r2.dev"
+    }
+
+    fun resolvePublicUrl(filePath: String): String {
+        val cleanPath = filePath.trim()
+        if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+            return cleanPath
+        }
+        val relative = cleanPath.removePrefix("/")
+        return "$R2_PUBLIC_BASE_URL/$relative"
+    }
+
     open suspend fun downloadResource(context: Context, resource: Resource): File {
         val file = getLocalResourceFile(context, resource)
         if (file.exists() && file.length() > 0) return file
 
-        val bytes = if (resource.filePath.startsWith("http://") || resource.filePath.startsWith("https://")) {
-            withContext(Dispatchers.IO) {
-                val conn = URL(resource.filePath).openConnection() as HttpURLConnection
+        val targetUrl = resolvePublicUrl(resource.filePath)
+
+        val bytes = withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = URL(targetUrl).openConnection() as HttpURLConnection
                 conn.connectTimeout = 15000
                 conn.readTimeout = 30000
+                if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                    conn.inputStream.use { it.readBytes() }
+                } else {
+                    null
+                }
+            }.getOrNull() ?: run {
+                val relative = resource.filePath.removePrefix("http://").removePrefix("https://").removePrefix("/")
+                val fallbackUrl = "${Supabase.SUPABASE_URL}/storage/v1/object/public/resources/$relative"
+                val conn = URL(fallbackUrl).openConnection() as HttpURLConnection
+                conn.connectTimeout = 15000
+                conn.readTimeout = 30000
+                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    throw IOException("HTTP download failed with response code ${conn.responseCode}")
+                }
                 conn.inputStream.use { it.readBytes() }
             }
-        } else {
-            downloadResourceFile("resources", resource.filePath)
         }
 
         withContext(Dispatchers.IO) {
@@ -188,7 +216,21 @@ open class SupabaseRepository {
             else -> "shared"
         }
         val safeFileName = fileName.ifEmpty { "document_$id.pdf" }
-        val filePath = "uploads/${unitId.trim()}_${id}_$safeFileName"
+        val objectKey = "uploads/${unitId.trim()}_${id}_$safeFileName"
+
+        // Step 1: Upload file bytes directly to Cloudflare R2 first and obtain public URL
+        val publicUrl = try {
+            CloudflareR2.uploadFile(objectKey, fileBytes, mimeType)
+        } catch (e: Exception) {
+            try {
+                client.storage.from("resources").upload(objectKey, fileBytes) {
+                    upsert = true
+                }
+                "$R2_PUBLIC_BASE_URL/$objectKey"
+            } catch (e2: Exception) {
+                throw IOException("Cloudflare R2 upload failed: ${e.message}", e)
+            }
+        }
 
         val resource = Resource(
             id = id,
@@ -197,7 +239,7 @@ open class SupabaseRepository {
             category = safeCategory,
             resourceType = resourceType,
             fileName = safeFileName,
-            filePath = filePath,
+            filePath = publicUrl,
             fileSize = fileBytes.size.toLong(),
             mimeType = mimeType,
             status = "approved",
@@ -205,16 +247,14 @@ open class SupabaseRepository {
             createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
         )
 
-        runCatching {
-            client.storage.from("resources").upload(filePath, fileBytes) {
-                upsert = true
-            }
-        }
-
-        runCatching {
+        // Step 2: Insert database record in public.resources only after storage upload succeeds
+        try {
             client.from("resources").insert(resource)
+        } catch (e: Exception) {
+            throw IOException("Database record creation failed: ${e.message}", e)
         }
 
+        // Step 3: Save to local cache & disk for immediate offline access
         context.let { ctx ->
             val current = runCatching { getAllResources(ctx) }.getOrDefault(emptyList()).toMutableList()
             current.removeAll { it.id == resource.id }

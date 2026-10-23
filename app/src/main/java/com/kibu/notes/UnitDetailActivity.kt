@@ -309,7 +309,7 @@ class UnitDetailActivity : AppCompatActivity() {
                     }
 
                     if (bytes != null) {
-                        val res = withContext(Dispatchers.IO) {
+                        val uploadResult = withContext(Dispatchers.IO) {
                             runCatching {
                                 supabaseRepository.uploadResource(
                                     context = this@UnitDetailActivity,
@@ -320,16 +320,18 @@ class UnitDetailActivity : AppCompatActivity() {
                                     fileBytes = bytes,
                                     mimeType = mimeType
                                 )
-                            }.getOrNull()
+                            }
                         }
 
+                        val res = uploadResult.getOrNull()
                         if (res != null) {
                             Toast.makeText(this@UnitDetailActivity, getString(R.string.upload_success), Toast.LENGTH_SHORT).show()
                             dialog.dismiss()
                             renderView()
                             showCreditDialog(res.id)
                         } else {
-                            Toast.makeText(this@UnitDetailActivity, getString(R.string.upload_failed), Toast.LENGTH_SHORT).show()
+                            val err = uploadResult.exceptionOrNull()?.message ?: getString(R.string.upload_failed)
+                            Toast.makeText(this@UnitDetailActivity, err, Toast.LENGTH_LONG).show()
                             isEnabled = true
                             text = getString(R.string.confirm_upload)
                         }
@@ -494,7 +496,7 @@ class UnitDetailActivity : AppCompatActivity() {
                         }
 
                         if (bytes != null) {
-                            val res = withContext(Dispatchers.IO) {
+                            val uploadResult = withContext(Dispatchers.IO) {
                                 runCatching {
                                     supabaseRepository.uploadResource(
                                         context = this@UnitDetailActivity,
@@ -505,10 +507,16 @@ class UnitDetailActivity : AppCompatActivity() {
                                         fileBytes = bytes,
                                         mimeType = mimeType
                                     )
-                                }.getOrNull()
+                                }
                             }
+                            val res = uploadResult.getOrNull()
                             if (res != null) {
                                 uploadedIds.add(res.id)
+                            } else {
+                                val err = uploadResult.exceptionOrNull()?.message.orEmpty()
+                                if (err.isNotEmpty()) {
+                                    Toast.makeText(this@UnitDetailActivity, err, Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
                     }

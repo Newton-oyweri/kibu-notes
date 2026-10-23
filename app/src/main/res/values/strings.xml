@@ -3,6 +3,10 @@
     <string name="app_name">Kibu Notes</string>
     <string name="shared_student_notes">Shared student notes</string>
     <string name="share_more_notes">Share more notes</string>
+    <string name="upload_batch_title">Upload %1$d Documents</string>
+    <string name="upload_all">Upload All (%1$d)</string>
+    <string name="uploading_progress">Uploading %1$d of %2$d…</string>
+    <string name="batch_upload_success">%1$d files uploaded successfully!</string>
     <string name="thanks_for_sharing_title">Thanks for sharing to Kibu Notes!</string>
     <string name="thanks_for_sharing_question">Would you like others to know it\'s you who shared this resource?</string>
     <string name="your_name_hint">Your name or alias (optional)</string>

@@ -48,9 +48,13 @@ class UnitDetailActivity : AppCompatActivity() {
     private lateinit var currentUnit: AcademicUnit
     private lateinit var detailContainer: LinearLayout
 
-    private val pickDocument = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            showUploadBottomSheet(uri)
+    private val pickDocuments = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (!uris.isNullOrEmpty()) {
+            if (uris.size == 1) {
+                showUploadBottomSheet(uris.first())
+            } else {
+                showBatchUploadBottomSheet(uris)
+            }
         }
     }
 
@@ -116,7 +120,7 @@ class UnitDetailActivity : AppCompatActivity() {
                 setMargins(0, 0, marginPx, marginPx)
             }
             setOnClickListener {
-                pickDocument.launch("*/*")
+                pickDocuments.launch("*/*")
             }
         }
         root.addView(fab)
@@ -344,6 +348,234 @@ class UnitDetailActivity : AppCompatActivity() {
 
         dialog.setContentView(dialogLayout)
         dialog.show()
+    }
+
+    private fun showBatchUploadBottomSheet(uris: List<Uri>) {
+        val dialog = BottomSheetDialog(this)
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 48, 48, 48)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val header = TextView(this).apply {
+            text = getString(R.string.upload_batch_title, uris.size)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 16)
+        }
+        dialogLayout.addView(header)
+
+        val filesScrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (180 * resources.displayMetrics.density).toInt()
+            ).apply { setMargins(0, 0, 0, 24) }
+        }
+
+        val filesContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        uris.forEach { uri ->
+            val fileName = getFileNameFromUri(uri)
+            val fileSize = getFileSizeFromUri(uri)
+
+            val fileRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(16, 12, 16, 12)
+
+                addView(TextView(this@UnitDetailActivity).apply {
+                    text = "📄"
+                    textSize = 18f
+                    setPadding(0, 0, 16, 0)
+                })
+
+                val textCol = LinearLayout(this@UnitDetailActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                textCol.addView(TextView(this@UnitDetailActivity).apply {
+                    text = fileName
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                    setTypeface(null, Typeface.BOLD)
+                    maxLines = 1
+                })
+                textCol.addView(TextView(this@UnitDetailActivity).apply {
+                    text = Formatter.formatShortFileSize(this@UnitDetailActivity, fileSize)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                    setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+                })
+                addView(textCol)
+            }
+            filesContainer.addView(fileRow)
+        }
+
+        filesScrollView.addView(filesContainer)
+        dialogLayout.addView(filesScrollView)
+
+        val catLabel = TextView(this).apply {
+            text = getString(R.string.select_category)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 12)
+        }
+        dialogLayout.addView(catLabel)
+
+        val radioGroup = RadioGroup(this).apply {
+            orientation = RadioGroup.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 32) }
+        }
+
+        val radioTopics = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_topics)
+            isChecked = true
+        }
+        val radioPastPapers = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_past_papers)
+            setPadding(24, 0, 0, 0)
+        }
+        val radioShared = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_shared)
+            setPadding(24, 0, 0, 0)
+        }
+
+        radioGroup.addView(radioTopics)
+        radioGroup.addView(radioPastPapers)
+        radioGroup.addView(radioShared)
+        dialogLayout.addView(radioGroup)
+
+        val buttonsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val cancelBtn = MaterialButton(this, null, com.google.android.material.R.attr.borderlessButtonStyle).apply {
+            text = getString(android.R.string.cancel)
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        val confirmBtn = MaterialButton(this).apply {
+            text = getString(R.string.upload_all, uris.size)
+            setIconResource(R.drawable.ic_up)
+            setOnClickListener {
+                val selectedCategory = when (radioGroup.checkedRadioButtonId) {
+                    radioPastPapers.id -> "Past papers"
+                    radioShared.id -> "Shared"
+                    else -> "Topics"
+                }
+
+                isEnabled = false
+                val uploadedIds = mutableListOf<String>()
+
+                lifecycleScope.launch {
+                    uris.forEachIndexed { index, uri ->
+                        text = getString(R.string.uploading_progress, index + 1, uris.size)
+                        val fileName = getFileNameFromUri(uri)
+                        val mimeType = contentResolver.getType(uri) ?: "application/pdf"
+                        val bytes = withContext(Dispatchers.IO) {
+                            runCatching {
+                                contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            }.getOrNull()
+                        }
+
+                        if (bytes != null) {
+                            val res = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    supabaseRepository.uploadResource(
+                                        context = this@UnitDetailActivity,
+                                        unitId = currentUnit.id,
+                                        title = fileName.substringBeforeLast("."),
+                                        category = selectedCategory,
+                                        fileName = fileName,
+                                        fileBytes = bytes,
+                                        mimeType = mimeType
+                                    )
+                                }.getOrNull()
+                            }
+                            if (res != null) {
+                                uploadedIds.add(res.id)
+                            }
+                        }
+                    }
+
+                    if (uploadedIds.isNotEmpty()) {
+                        Toast.makeText(this@UnitDetailActivity, getString(R.string.batch_upload_success, uploadedIds.size), Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        renderView()
+                        showBatchCreditDialog(uploadedIds)
+                    } else {
+                        Toast.makeText(this@UnitDetailActivity, getString(R.string.upload_failed), Toast.LENGTH_SHORT).show()
+                        isEnabled = true
+                        text = getString(R.string.upload_all, uris.size)
+                    }
+                }
+            }
+        }
+
+        buttonsRow.addView(cancelBtn)
+        buttonsRow.addView(confirmBtn)
+        dialogLayout.addView(buttonsRow)
+
+        dialog.setContentView(dialogLayout)
+        dialog.show()
+    }
+
+    private fun showBatchCreditDialog(resourceIds: List<String>) {
+        val inputLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.your_name_hint)
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            setPadding(48, 24, 48, 0)
+        }
+        val inputEdit = TextInputEditText(this)
+        inputLayout.addView(inputEdit)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(inputLayout)
+        }
+
+        val alertDialog = MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.thanks_for_sharing_title))
+            .setMessage(getString(R.string.thanks_for_sharing_question))
+            .setView(container)
+            .setPositiveButton(getString(R.string.save_name)) { _, _ ->
+                val name = inputEdit.text?.toString().orEmpty().trim()
+                if (name.isNotEmpty()) {
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) {
+                            resourceIds.forEach { resId ->
+                                supabaseRepository.updateResourceDescription(
+                                    context = this@UnitDetailActivity,
+                                    resourceId = resId,
+                                    description = name
+                                )
+                            }
+                        }
+                        renderView()
+                    }
+                }
+            }
+            .setNegativeButton(getString(R.string.skip)) { d, _ ->
+                d.dismiss()
+            }
+            .create()
+
+        alertDialog.show()
     }
 
     private fun showCreditDialog(resourceId: String) {

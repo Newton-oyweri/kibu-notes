@@ -2,13 +2,14 @@ package com.kibu.notes.data.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class Resource(
     val id: String = "",
     @SerialName("unit_id")
     val unitId: String = "",
-    @SerialName("topic_id")
+    @Transient
     val topicId: String? = null,
     @SerialName("uploaded_by")
     val uploadedBy: String? = null,

@@ -1,7 +1,5 @@
 package com.kibu.notes
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -53,8 +51,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.net.toUri
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -65,6 +65,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -87,6 +88,8 @@ class MainActivity : AppCompatActivity() {
      */
     private data class Crumb(val treeUri: Uri, val docId: String, val label: String)
 
+    lateinit var kibuTrendsPage: FrameLayout
+    private lateinit var gestureDetector: GestureDetector
     private val stack = ArrayDeque<Crumb>()
     private val adapter = RowAdapter()
     private lateinit var toolbar: MaterialToolbar
@@ -105,17 +108,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
-    private lateinit var kibuTrendsOverlay: View
-    private lateinit var kibuTrendsScrollView: ScrollView
+    internal lateinit var trendsView: View
     private lateinit var trendsPromoImage: ImageView
     private lateinit var trendsLoadingProgress: View
     private lateinit var trendsImageCard: View
-    private lateinit var trendsFab: ExtendedFloatingActionButton
-    private var isKibuTrendsOpen = false
     private var trendsBitmap: Bitmap? = null
-    private lateinit var page2Screen: View
-    private lateinit var gestureDetector: GestureDetector
-    private var isPage2Open = false
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -169,14 +166,30 @@ class MainActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
-            if (isKibuTrendsOpen) {
-                closeKibuTrends()
+            if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE) {
+                hideKibuTrendsPage()
                 return
             }
             if (stack.isNotEmpty()) {
                 stack.removeLast()
                 render()
             }
+        }
+    }
+
+    fun showKibuTrendsPage() {
+        if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility != View.VISIBLE) {
+            kibuTrendsPage.visibility = View.VISIBLE
+            if (::fab.isInitialized) fab.hide()
+            backCallback.isEnabled = true
+        }
+    }
+
+    fun hideKibuTrendsPage() {
+        if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE) {
+            kibuTrendsPage.visibility = View.GONE
+            if (::fab.isInitialized) fab.show()
+            backCallback.isEnabled = stack.isNotEmpty()
         }
     }
 
@@ -208,9 +221,15 @@ class MainActivity : AppCompatActivity() {
             WindowInsetsCompat.CONSUMED
         }
 
-        page2Screen = findViewById(R.id.page2Screen)
-        val page2Toolbar = findViewById<MaterialToolbar>(R.id.page2Toolbar)
-        page2Toolbar.setNavigationOnClickListener { closePage2() }
+        kibuTrendsPage = findViewById(R.id.kibuTrendsPage)
+
+        ViewCompat.setOnApplyWindowInsetsListener(kibuTrendsPage) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(
@@ -219,17 +238,10 @@ class MainActivity : AppCompatActivity() {
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                if (e1 != null) {
-                    val diffX = e2.x - e1.x
-                    val diffY = e2.y - e1.y
-                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
-                        if (diffX > 0 && !isPage2Open) {
-                            openPage2()
-                            return true
-                        } else if (diffX < 0 && isPage2Open) {
-                            closePage2()
-                            return true
-                        }
+                if (e1 != null && e2.x - e1.x > 100 && abs(e2.x - e1.x) > abs(e2.y - e1.y)) {
+                    if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility != View.VISIBLE) {
+                        showKibuTrendsPage()
+                        return true
                     }
                 }
                 return false
@@ -340,6 +352,94 @@ class MainActivity : AppCompatActivity() {
             adapter = foldersAdapter
         }
 
+        // Trends View (Page 2)
+        val trendsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipToPadding = false
+            setPadding(
+                (16 * resources.displayMetrics.density).toInt(),
+                (16 * resources.displayMetrics.density).toInt(),
+                (16 * resources.displayMetrics.density).toInt(),
+                (200 * resources.displayMetrics.density).toInt()
+            )
+        }
+
+        trendsLoadingProgress = CircularProgressIndicator(this).apply {
+            isIndeterminate = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                setMargins(0, 32, 0, 32)
+            }
+        }
+        trendsContainer.addView(trendsLoadingProgress)
+
+        trendsPromoImage = ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        trendsImageCard = MaterialCardView(this).apply {
+            radius = 20 * resources.displayMetrics.density
+            cardElevation = 2 * resources.displayMetrics.density
+            strokeWidth = (1 * resources.displayMetrics.density).toInt()
+            setStrokeColor(
+                ColorStateList.valueOf(
+                    MaterialColors.getColor(this, MaterialR.attr.colorOutlineVariant)
+                )
+            )
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = (16 * resources.displayMetrics.density).toInt()
+            }
+            addView(trendsPromoImage)
+        }
+        trendsContainer.addView(trendsImageCard)
+
+        val trendsHeader = TextView(this).apply {
+            text = getString(R.string.kibu_trends)
+            setTextAppearance(MaterialR.style.TextAppearance_Material3_TitleLarge)
+            setTextColor(MaterialColors.getColor(this, MaterialR.attr.colorPrimary))
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 8, 0, 12)
+        }
+        trendsContainer.addView(trendsHeader)
+
+        val trendsAdapter = TrendsAdapter(onShareClicked = { shareGander() })
+        val trendsRecyclerView = RecyclerView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            isNestedScrollingEnabled = false
+            adapter = trendsAdapter
+        }
+        trendsContainer.addView(trendsRecyclerView)
+        loadTrendPosts(trendsAdapter)
+
+        trendsView = ScrollView(this).apply {
+            isFillViewport = true
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(trendsContainer)
+        }
+
+        loadTrendsPromoImage()
+
+        kibuTrendsPage.addView(trendsView)
+
         viewPager.adapter = HomePagerAdapter(listOf(myUnitsView, recentsList, foldersList))
         viewPager.offscreenPageLimit = 2
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
@@ -354,13 +454,6 @@ class MainActivity : AppCompatActivity() {
         val openFile = View.OnClickListener { openDocument.launch(arrayOf("*/*")) }
         fab.setOnClickListener(openFile)
 
-        trendsFab = findViewById(R.id.trendsFab)
-        trendsFab.setOnClickListener { v ->
-            val location = IntArray(2)
-            v.getLocationInWindow(location)
-            openKibuTrends(location[0] + v.width / 2, location[1] + v.height / 2)
-        }
-
         selectedProgramCard = findViewById(R.id.selectedProgramCard)
         selectedProgramText = findViewById(R.id.selectedProgramText)
         selectedPeriodText = findViewById(R.id.selectedPeriodText)
@@ -370,196 +463,17 @@ class MainActivity : AppCompatActivity() {
             showPeriodSelectorOrCourseSelector()
         }
 
-        kibuTrendsOverlay = findViewById(R.id.kibuTrendsOverlay)
-        kibuTrendsScrollView = findViewById(R.id.kibuTrendsScrollView)
-        trendsPromoImage = findViewById(R.id.trendsPromoImage)
-        trendsLoadingProgress = findViewById(R.id.trendsLoadingProgress)
-        trendsImageCard = findViewById(R.id.trendsImageCard)
-
-        val trendsPullContainer = findViewById<View>(R.id.trendsPullContainer)
-        trendsPullContainer?.setOnClickListener {
-            closeKibuTrends()
-        }
-
-        setupPullToDismissGesture()
-
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
     }
 
-    private fun openKibuTrends(originX: Int = -1, originY: Int = -1) {
-        if (isKibuTrendsOpen) return
-        isKibuTrendsOpen = true
-        backCallback.isEnabled = true
 
-        if (::trendsFab.isInitialized) trendsFab.hide()
-        if (::fab.isInitialized) fab.hide()
 
-        kibuTrendsOverlay.alpha = 1f
-        kibuTrendsScrollView.translationY = 0f
-        kibuTrendsScrollView.scaleX = 1f
-        kibuTrendsScrollView.scaleY = 1f
-        kibuTrendsScrollView.alpha = 1f
-        val hintView = findViewById<TextView>(R.id.trendsPullHint)
-        hintView?.setText(R.string.trends_pull_hint)
-
-        loadTrendsPromoImage()
-
-        kibuTrendsOverlay.post {
-            val cx = if (originX > 0) originX else kibuTrendsOverlay.width / 2
-            val cy = if (originY > 0) originY else kibuTrendsOverlay.height
-            val finalRadius = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
-
-            val anim = ViewAnimationUtils.createCircularReveal(kibuTrendsOverlay, cx, cy, 0f, finalRadius)
-            anim.duration = 450
-            anim.interpolator = AccelerateDecelerateInterpolator()
-            kibuTrendsOverlay.visibility = View.VISIBLE
-            anim.start()
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (::gestureDetector.isInitialized) {
+            gestureDetector.onTouchEvent(ev)
         }
-    }
-
-    private fun closeKibuTrends(originX: Int = -1, originY: Int = -1) {
-        if (!isKibuTrendsOpen) return
-        isKibuTrendsOpen = false
-        backCallback.isEnabled = stack.isNotEmpty()
-
-        val cx = if (originX > 0) originX else kibuTrendsOverlay.width / 2
-        val cy = if (originY > 0) originY else kibuTrendsOverlay.height
-        val initialRadius = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
-
-        if (kibuTrendsOverlay.isAttachedToWindow) {
-            val anim = ViewAnimationUtils.createCircularReveal(kibuTrendsOverlay, cx, cy, initialRadius, 0f)
-            anim.duration = 400
-            anim.interpolator = AccelerateDecelerateInterpolator()
-            anim.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    closeKibuTrendsDirectly()
-                }
-            })
-            anim.start()
-        } else {
-            closeKibuTrendsDirectly()
-        }
-    }
-
-    private fun closeKibuTrendsDirectly() {
-        isKibuTrendsOpen = false
-        backCallback.isEnabled = stack.isNotEmpty()
-
-        kibuTrendsOverlay.visibility = View.INVISIBLE
-        kibuTrendsOverlay.alpha = 1f
-        kibuTrendsScrollView.translationY = 0f
-        kibuTrendsScrollView.scaleX = 1f
-        kibuTrendsScrollView.scaleY = 1f
-        kibuTrendsScrollView.alpha = 1f
-
-        val hintView = findViewById<TextView>(R.id.trendsPullHint)
-        hintView?.setText(R.string.trends_pull_hint)
-
-        if (::trendsFab.isInitialized) trendsFab.show()
-        if (::fab.isInitialized) fab.show()
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupPullToDismissGesture() {
-        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
-        var startY = 0f
-        var startX = 0f
-        var isDraggingDown = false
-
-        val touchListener = View.OnTouchListener { view, event ->
-            if (!isKibuTrendsOpen) return@OnTouchListener false
-
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    startY = event.rawY
-                    startX = event.rawX
-                    isDraggingDown = false
-                    false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dy = event.rawY - startY
-                    val dx = event.rawX - startX
-
-                    if (!isDraggingDown) {
-                        if (kibuTrendsScrollView.scrollY <= 0 && dy > touchSlop && dy > abs(dx)) {
-                            isDraggingDown = true
-                            view.parent?.requestDisallowInterceptTouchEvent(true)
-                        }
-                    }
-
-                    if (isDraggingDown) {
-                        val dragOffset = (dy - touchSlop).coerceAtLeast(0f)
-                        val dampedOffset = dragOffset * 0.75f
-
-                        kibuTrendsScrollView.translationY = dampedOffset
-
-                        val maxDrag = (kibuTrendsOverlay.height * 0.4f).coerceAtLeast(100f)
-                        val progress = (dampedOffset / maxDrag).coerceIn(0f, 1f)
-
-                        val scale = 1f - (progress * 0.12f)
-                        kibuTrendsScrollView.scaleX = scale
-                        kibuTrendsScrollView.scaleY = scale
-
-                        kibuTrendsOverlay.alpha = 1f - (progress * 0.35f)
-
-                        val dismissThreshold = 130 * resources.displayMetrics.density
-                        val hintView = findViewById<TextView>(R.id.trendsPullHint)
-                        if (dampedOffset > dismissThreshold) {
-                            hintView?.setText(R.string.trends_release_hint)
-                        } else {
-                            hintView?.setText(R.string.trends_pull_hint)
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isDraggingDown) {
-                        isDraggingDown = false
-                        val currentTranslation = kibuTrendsScrollView.translationY
-                        val dismissThreshold = 130 * resources.displayMetrics.density
-                        val hintView = findViewById<TextView>(R.id.trendsPullHint)
-
-                        if (currentTranslation > dismissThreshold) {
-                            val targetY = (kibuTrendsOverlay.height * 1.2f).coerceAtLeast(1200f)
-                            kibuTrendsScrollView.animate()
-                                .translationY(targetY)
-                                .alpha(0f)
-                                .setDuration(220)
-                                .setInterpolator(AccelerateInterpolator())
-                                .withEndAction {
-                                    closeKibuTrendsDirectly()
-                                }
-                                .start()
-                        } else {
-                            kibuTrendsScrollView.animate()
-                                .translationY(0f)
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .alpha(1f)
-                                .setDuration(300)
-                                .setInterpolator(OvershootInterpolator(1.1f))
-                                .start()
-                            kibuTrendsOverlay.animate()
-                                .alpha(1f)
-                                .setDuration(200)
-                                .start()
-                            hintView?.setText(R.string.trends_pull_hint)
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                else -> false
-            }
-        }
-
-        kibuTrendsScrollView.setOnTouchListener(touchListener)
-        trendsImageCard.setOnTouchListener(touchListener)
-        trendsPromoImage.setOnTouchListener(touchListener)
+        return super.dispatchTouchEvent(ev)
     }
 
     private fun loadTrendsPromoImage() {
@@ -593,49 +507,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getSampleTrendPosts(): List<TrendPost> {
-        return listOf(
-            TrendPost(
-                id = "1",
-                authorName = "Alex Chen",
-                authorHandle = "@alex_c",
-                content = "Just uploaded comprehensive summary notes for CS201 Data Structures & Algorithms! Check out the My Units tab to download the PDF.",
-                category = "Notes",
-                timeAgo = "10m ago",
-                likesCount = 24,
-                commentsCount = 5
-            ),
-            TrendPost(
-                id = "2",
-                authorName = "Kibu Academic Affairs",
-                authorHandle = "@kibu_official",
-                content = "📢 Semester End Examinations Schedule for Academic Year 2024/2025 has been published. Make sure to download past papers from Kibu Notes!",
-                category = "Announcement",
-                timeAgo = "1h ago",
-                likesCount = 89,
-                commentsCount = 18
-            ),
-            TrendPost(
-                id = "3",
-                authorName = "Sarah Jenkins",
-                authorHandle = "@sarah_j",
-                content = "Anyone studying for Organic Chemistry II midterm tomorrow? Group study session happening at the campus library room 3B!",
-                category = "Study Group",
-                timeAgo = "3h ago",
-                likesCount = 42,
-                commentsCount = 12
-            ),
-            TrendPost(
-                id = "4",
-                authorName = "David Omari",
-                authorHandle = "@domari",
-                content = "Pro tip: Use the search feature in Kibu Notes to find past exam solutions fast! Saved me so much time before finals.",
-                category = "Tips",
-                timeAgo = "5h ago",
-                likesCount = 67,
-                commentsCount = 9
-            )
-        )
+    private fun loadTrendPosts(trendsAdapter: TrendsAdapter) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val posts = runCatching {
+                supabaseRepository.getTrendPosts(this@MainActivity)
+            }.getOrDefault(emptyList())
+
+            withContext(Dispatchers.Main) {
+                trendsAdapter.submitList(posts)
+            }
+        }
     }
 
     /**
@@ -893,7 +774,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun render() {
         val here = stack.lastOrNull()
-        backCallback.isEnabled = here != null
+        val isKibuTrendsPageOpen = ::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE
+        backCallback.isEnabled = here != null || isKibuTrendsPageOpen
+
+        if (isKibuTrendsPageOpen) {
+            if (::fab.isInitialized) fab.hide()
+            return
+        }
 
         toolbar.title = here?.label.orEmpty()
         lockup.visibility = if (here == null) View.VISIBLE else View.GONE
@@ -1126,32 +1013,6 @@ class MainActivity : AppCompatActivity() {
             )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
         return name ?: id.substringAfterLast(':').ifEmpty { id }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        if (ev != null && ::gestureDetector.isInitialized && gestureDetector.onTouchEvent(ev)) {
-            return true
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
-    private fun openPage2() {
-        if (isPage2Open) return
-        isPage2Open = true
-        page2Screen.visibility = View.VISIBLE
-        page2Screen.translationX = -resources.displayMetrics.widthPixels.toFloat()
-        page2Screen.animate().translationX(0f).setDuration(300).start()
-    }
-
-    private fun closePage2() {
-        if (!isPage2Open) return
-        isPage2Open = false
-        page2Screen.animate().translationX(-resources.displayMetrics.widthPixels.toFloat())
-            .setDuration(300)
-            .withEndAction {
-                page2Screen.visibility = View.GONE
-            }
-            .start()
     }
 
     private class HomePagerAdapter(private val views: List<View>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {

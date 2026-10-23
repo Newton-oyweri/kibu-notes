@@ -286,12 +286,12 @@ class MainActivityTest {
     }
 
     @Test
-    fun swipingLeftToRightOpensPage2() {
+    fun swipingLeftToRightOpensKibuTrendsPage() {
         val controller = home()
         val activity = controller.get()
-        val page2Screen = activity.findViewById<View>(R.id.page2Screen)
-        assertThat(page2Screen).isNotNull()
-        assertThat(page2Screen.visibility).isEqualTo(View.GONE)
+        val kibuTrendsPage = activity.findViewById<View>(R.id.kibuTrendsPage)
+        assertThat(kibuTrendsPage).isNotNull()
+        assertThat(kibuTrendsPage.visibility).isEqualTo(View.GONE)
 
         val down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 100f, 0)
         val move = MotionEvent.obtain(0, 50, MotionEvent.ACTION_MOVE, 300f, 100f, 0)
@@ -300,7 +300,7 @@ class MainActivityTest {
         activity.dispatchTouchEvent(move)
         activity.dispatchTouchEvent(up)
         shadowOf(context.mainLooper).idle()
-        assertThat(page2Screen.visibility).isEqualTo(View.VISIBLE)
+        assertThat(kibuTrendsPage.visibility).isEqualTo(View.VISIBLE)
     }
 
     // ---------------------------------------------------------------

@@ -125,7 +125,11 @@ class SearchAdapter(
                 is SearchResultItem.ResourceItem -> {
                     tvTitle.text = item.resource.title.ifEmpty { item.resource.fileName.ifEmpty { "Study Material" } }
                     val codePrefix = if (!item.unitCode.isNullOrEmpty()) "${item.unitCode} • " else ""
-                    tvSubtitle.text = "$codePrefix${item.subtitle}"
+                    val uploader = item.resource.description?.trim().orEmpty()
+                    val sharedBy = if (uploader.isNotEmpty()) {
+                        if (uploader.lowercase(Locale.ROOT).startsWith("shared by")) " • $uploader" else " • Shared by $uploader"
+                    } else ""
+                    tvSubtitle.text = "$codePrefix${item.subtitle}$sharedBy"
                     val badgeType = item.resource.resourceType.ifEmpty { getExtension(item.resource.fileName) }
                     tvBadge.text = badgeType.uppercase(Locale.ROOT)
                     ivIcon.setImageResource(R.drawable.ic_search)

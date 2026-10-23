@@ -112,15 +112,20 @@ object UnitDetailView {
             val filtered = when (tabIndex) {
                 0 -> resources.filter { res ->
                     val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
-                    cat.contains("topic")
+                    val type = res.resourceType.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    cat.contains("topic") || type.contains("topic")
                 }
                 1 -> resources.filter { res ->
                     val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
-                    cat.contains("past") || cat.contains("paper")
+                    val type = res.resourceType.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    cat.contains("past") || cat.contains("paper") || type.contains("past") || type.contains("paper")
                 }
                 else -> resources.filter { res ->
                     val cat = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
-                    cat.contains("shared") || (!cat.contains("topic") && !cat.contains("past") && !cat.contains("paper"))
+                    val type = res.resourceType.lowercase(Locale.getDefault()).replace("_", " ").trim()
+                    val isTopic = cat.contains("topic") || type.contains("topic")
+                    val isPast = cat.contains("past") || cat.contains("paper") || type.contains("past") || type.contains("paper")
+                    !isTopic && !isPast
                 }
             }
 
@@ -258,6 +263,20 @@ object UnitDetailView {
                 setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
             }
             infoLayout.addView(subView)
+        }
+
+        val uploaderName = res.description?.trim().orEmpty()
+        if (uploaderName.isNotEmpty()) {
+            val uploaderView = TextView(context).apply {
+                text = if (uploaderName.lowercase(Locale.getDefault()).startsWith("shared by")) {
+                    uploaderName
+                } else {
+                    context.getString(R.string.shared_by, uploaderName)
+                }
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
+            }
+            infoLayout.addView(uploaderView)
         }
 
         row.addView(infoLayout)

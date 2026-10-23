@@ -172,16 +172,6 @@
 
     <!-- Native Explicit Floating Action Buttons -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/trendsFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginBottom="20dp"
-        android:layout_marginEnd="168dp"
-        android:text="Trends"
-        tools:ignore="HardcodedText" />
-
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/openFab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -189,146 +179,14 @@
         android:layout_margin="20dp"
         android:text="@string/open_a_file" />
 
-    <!-- Kibu Trends Full-Screen Overlay Container -->
-    <LinearLayout
-        android:id="@+id/kibuTrendsOverlay"
+    <!-- Kibu Trends full-screen page overlay -->
+    <FrameLayout
+        android:id="@+id/kibuTrendsPage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="?attr/colorSurface"
         android:clickable="true"
         android:focusable="true"
-        android:orientation="vertical"
-        android:visibility="invisible">
-
-        <!-- Kibu Trends Top Toolbar -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/colorSurfaceContainerHigh"
-            android:elevation="4dp"
-            android:minHeight="?attr/actionBarSize">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:fontFamily="sans-serif"
-                android:text="Kibu Trends"
-                android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                tools:ignore="HardcodedText" />
-        </FrameLayout>
-
-        <!-- Pull down indicator container -->
-        <LinearLayout
-            android:id="@+id/trendsPullContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingTop="10dp"
-            android:paddingBottom="8dp">
-
-            <!-- Drag Handle Bar -->
-            <View
-                android:id="@+id/trendsDragHandle"
-                android:layout_width="36dp"
-                android:layout_height="4dp"
-                android:layout_marginBottom="6dp"
-                android:background="@drawable/shape_drag_handle" />
-
-            <TextView
-                android:id="@+id/trendsPullHint"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="@string/trends_pull_hint"
-                android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-        </LinearLayout>
-
-        <!-- Scrollable Promo Display -->
-        <ScrollView
-            android:id="@+id/kibuTrendsScrollView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <com.google.android.material.progressindicator.CircularProgressIndicator
-                    android:id="@+id/trendsLoadingProgress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_margin="32dp"
-                    android:indeterminate="true" />
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/trendsImageCard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:visibility="gone"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="2dp"
-                    app:strokeColor="?attr/colorOutlineVariant"
-                    app:strokeWidth="1dp">
-
-                    <ImageView
-                        android:id="@+id/trendsPromoImage"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:adjustViewBounds="true"
-                        android:contentDescription="Kibu Trends Promo"
-                        android:scaleType="fitCenter"
-                        tools:ignore="HardcodedText" />
-                </com.google.android.material.card.MaterialCardView>
-
-            </LinearLayout>
-        </ScrollView>
-    </LinearLayout>
-
-    <!-- Page 2 Full Screen -->
-    <LinearLayout
-        android:id="@+id/page2Screen"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="?attr/colorSurface"
-        android:clickable="true"
-        android:focusable="true"
-        android:orientation="vertical"
-        android:translationX="-1000dp"
-        android:visibility="gone">
-
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/page2Toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_back"
-            app:title="@string/tab_page_2"
-            app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="24dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="@string/tab_page_2"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-        </FrameLayout>
-    </LinearLayout>
+        android:visibility="gone" />
 
 </FrameLayout>

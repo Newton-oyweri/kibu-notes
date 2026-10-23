@@ -2,6 +2,13 @@
 <resources>
     <string name="app_name">Kibu Notes</string>
     <string name="shared_student_notes">Shared student notes</string>
+    <string name="share_more_notes">Share more notes</string>
+    <string name="thanks_for_sharing_title">Thanks for sharing to Kibu Notes!</string>
+    <string name="thanks_for_sharing_question">Would you like others to know it\'s you who shared this resource?</string>
+    <string name="your_name_hint">Your name or alias (optional)</string>
+    <string name="save_name">Save Name</string>
+    <string name="skip">Skip</string>
+    <string name="shared_by">Shared by %1$s</string>
     <string name="selected_program">Selected Program / Course</string>
     <string name="my_course_program">My course/program</string>
     <string name="loading_programs">Loading programs…</string>
@@ -10,7 +17,8 @@
     <string name="tab_my_units">My Units</string>
     <string name="tab_recent_files">Recent Files</string>
     <string name="tab_folders">Folders</string>
-    <string name="tab_page_2">Page 2</string>
+    <string name="tab_page_2">Kibu Trends</string>
+    <string name="kibu_trends">Kibu Trends</string>
     <string name="loading_units_and_notes">Loading units and notes…</string>
     <string name="failed_to_load_units">Failed to load units from database</string>
     <string name="no_course_selected">No course or program selected yet.</string>
@@ -157,6 +165,17 @@
     <string name="about_licences">Open source licences</string>
     <string name="about_licences_detail">Full text for every bundled library</string>
     <string name="about_copyright" translatable="false">MIT licence. Copyright © 2026 Arjun Maniyani.</string>
+    <string name="upload_document">Upload</string>
+    <string name="upload_document_title">Upload Document</string>
+    <string name="confirm_upload">Confirm Upload</string>
+    <string name="upload_success">Document uploaded successfully!</string>
+    <string name="upload_failed">Document upload failed</string>
+    <string name="uploading" translatable="false">Uploading…</string>
+    <string name="select_category">Select Category</string>
+    <string name="document_title_hint">Document Title</string>
+    <string name="category_topics">Topics</string>
+    <string name="category_past_papers">Past papers</string>
+    <string name="category_shared">Shared</string>
     <string name="about_close">Close</string>
     <string name="no_browser">No app can open links</string>
     <!-- Becomes the viewer's title, so it reads as the document it is -->

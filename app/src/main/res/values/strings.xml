@@ -21,8 +21,6 @@
     <string name="tab_my_units">My Units</string>
     <string name="tab_recent_files">Recent Files</string>
     <string name="tab_folders">Folders</string>
-    <string name="tab_page_2">Kibu Trends</string>
-    <string name="kibu_trends">Kibu Trends</string>
     <string name="loading_units_and_notes">Loading units and notes…</string>
     <string name="failed_to_load_units">Failed to load units from database</string>
     <string name="no_course_selected">No course or program selected yet.</string>
@@ -179,6 +177,7 @@
     <string name="document_title_hint">Document Title</string>
     <string name="category_topics">Topics</string>
     <string name="category_past_papers">Past papers</string>
+    <string name="category_cats">CATs</string>
     <string name="category_shared">Shared</string>
     <string name="about_close">Close</string>
     <string name="no_browser">No app can open links</string>
@@ -201,8 +200,6 @@
     <string name="url_site" translatable="false">https://arjun.maniyani.com/gander/</string>
     <!-- Only reached when the Play Store app will not open the listing itself -->
     <string name="url_play_listing" translatable="false">https://play.google.com/store/apps/details?id=%1$s</string>
-    <string name="trends_pull_hint">↓ Pull down to return to Kibu Notes</string>
-    <string name="trends_release_hint">↑ Release to return to Kibu Notes</string>
     <string name="search_hint">Search notes, units, files &amp; folders…</string>
     <string name="search_empty_title">Search Kibu Notes &amp; Folders</string>
     <string name="search_empty_subtitle">Type to recursively search study notes, course units, and local folders.</string>

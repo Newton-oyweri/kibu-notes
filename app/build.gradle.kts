@@ -1,4 +1,5 @@
 import com.android.build.api.artifact.SingleArtifact
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -6,9 +7,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun prop(k: String) = "\"${localProps.getProperty(k, "")}\""
+
 android {
     namespace = "com.kibu.notes"
     compileSdk = 36
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.kibu.notes"
@@ -22,6 +32,12 @@ android {
         // an emulator gives no sign of the difference between slow and stuck.
         // Three minutes is far longer than the slowest of these needs.
         testInstrumentationRunnerArguments["timeout_msec"] = "180000"
+
+        buildConfigField("String", "R2_ACCOUNT_ID", prop("r2.accountId"))
+        buildConfigField("String", "R2_ACCESS_KEY_ID", prop("r2.accessKeyId"))
+        buildConfigField("String", "R2_SECRET_ACCESS_KEY", prop("r2.secretAccessKey"))
+        buildConfigField("String", "R2_BUCKET", prop("r2.bucket"))
+        buildConfigField("String", "R2_PUBLIC_URL", prop("r2.publicUrl"))
     }
 
     // The release keystore is intentionally not in the repo. Contributors without

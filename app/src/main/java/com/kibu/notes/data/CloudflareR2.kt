@@ -1,5 +1,7 @@
 package com.kibu.notes.data
 
+import android.util.Log
+import com.kibu.notes.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -13,48 +15,59 @@ import java.util.TimeZone
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+/**
+ * Cloudflare R2 uploader (S3-compatible, SigV4).
+ * All config comes from local.properties -> BuildConfig. Nothing is hardcoded here.
+ */
 object CloudflareR2 {
 
-    const val ACCOUNT_ID = "024325b360fb284b50c4f97652d48f78"
-    const val ACCESS_KEY_ID = "ad6bfa668cde09ca1f0e797803f869b0"
-    const val SECRET_ACCESS_KEY = "094e611c544c51a0b289b81b74fa623c467611c2d01a06a9b21bd56519a2443c"
-    const val BUCKET_NAME = "kibu-notes"
-    const val ENDPOINT = "https://024325b360fb284b50c4f97652d48f78.r2.cloudflarestorage.com"
-    const val PUBLIC_URL = "https://pub-937848871caa438bb7b53c74c18ed261.r2.dev"
+    private const val ACCOUNT_ID = BuildConfig.R2_ACCOUNT_ID
+    private const val ACCESS_KEY_ID = BuildConfig.R2_ACCESS_KEY_ID
+    private const val SECRET_ACCESS_KEY = BuildConfig.R2_SECRET_ACCESS_KEY
+    private const val BUCKET_NAME = BuildConfig.R2_BUCKET
+
+    const val PUBLIC_URL = BuildConfig.R2_PUBLIC_URL
+
+    private const val HOST = "$ACCOUNT_ID.r2.cloudflarestorage.com"
+    private const val ENDPOINT = "https://$HOST"
 
     suspend fun uploadFile(
         objectKey: String,
         fileBytes: ByteArray,
         contentType: String = "application/pdf"
     ): String = withContext(Dispatchers.IO) {
-        val cleanKey = objectKey.removePrefix("/")
-        val urlStr = "$ENDPOINT/$BUCKET_NAME/$cleanKey"
-        val host = "$ACCOUNT_ID.r2.cloudflarestorage.com"
+        check(
+            ACCOUNT_ID.isNotBlank() && ACCESS_KEY_ID.isNotBlank() &&
+                    SECRET_ACCESS_KEY.isNotBlank() && BUCKET_NAME.isNotBlank()
+        ) { "R2 config missing: set r2.* values in local.properties" }
+
+        // Every path segment must be URI-encoded (spaces, brackets, etc.),
+        // and the SAME encoded path is used for signing and for the request.
+        val encodedKey = objectKey.removePrefix("/").split("/").joinToString("/") { uriEncode(it) }
+        val canonicalUri = "/$BUCKET_NAME/$encodedKey"
+        val urlStr = "$ENDPOINT$canonicalUri"
 
         val now = Date()
-        val isoFormat = SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val amzDate = isoFormat.format(now)
-        val dateStamp = dateFormat.format(now)
+        val amzDate = SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(now)
+        val dateStamp = SimpleDateFormat("yyyyMMdd", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(now)
         val region = "auto"
         val service = "s3"
 
         val contentSha256 = sha256Hex(fileBytes)
+        val signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date"
 
         val canonicalRequest = listOf(
             "PUT",
-            "/$BUCKET_NAME/$cleanKey",
+            canonicalUri,
             "",
             "content-type:$contentType",
-            "host:$host",
+            "host:$HOST",
             "x-amz-content-sha256:$contentSha256",
             "x-amz-date:$amzDate",
             "",
-            "content-type;host;x-amz-content-sha256;x-amz-date",
+            signedHeaders,
             contentSha256
         ).joinToString("\n")
 
@@ -73,36 +86,59 @@ object CloudflareR2 {
         val kSigning = hmacSha256(kService, "aws4_request")
         val signature = bytesToHex(hmacSha256(kSigning, stringToSign))
 
-        val authHeader = "AWS4-HMAC-SHA256 Credential=$ACCESS_KEY_ID/$credentialScope, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature=$signature"
+        val authHeader = "AWS4-HMAC-SHA256 Credential=$ACCESS_KEY_ID/$credentialScope, " +
+                "SignedHeaders=$signedHeaders, Signature=$signature"
 
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             requestMethod = "PUT"
             doOutput = true
             connectTimeout = 30000
             readTimeout = 60000
-            setRequestProperty("Host", host)
+            setFixedLengthStreamingMode(fileBytes.size)
             setRequestProperty("Content-Type", contentType)
             setRequestProperty("x-amz-date", amzDate)
             setRequestProperty("x-amz-content-sha256", contentSha256)
             setRequestProperty("Authorization", authHeader)
-            setRequestProperty("Content-Length", fileBytes.size.toString())
         }
 
-        conn.outputStream.use { it.write(fileBytes) }
+        try {
+            conn.outputStream.use { it.write(fileBytes) }
 
-        val code = conn.responseCode
-        if (code in 200..299) {
-            "$PUBLIC_URL/$cleanKey"
-        } else {
-            val errText = conn.errorStream?.use { it.bufferedReader().readText() }.orEmpty()
-            throw IOException("Cloudflare R2 upload failed with HTTP $code: ${conn.responseMessage} ($errText)")
+            val code = conn.responseCode
+            if (code in 200..299) {
+                "$PUBLIC_URL/$encodedKey"
+            } else {
+                val errText = conn.errorStream?.use { it.bufferedReader().readText() }.orEmpty()
+                runCatching {
+                    Log.e("CloudflareR2", "Upload failed with HTTP $code: ${conn.responseMessage}\n$errText")
+                }.onFailure {
+                    println("CloudflareR2: Upload failed with HTTP $code: ${conn.responseMessage}\n$errText")
+                }
+                throw IOException("Cloudflare R2 upload failed with HTTP $code: ${conn.responseMessage} ($errText)")
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** RFC 3986 encoding as required by SigV4 (space -> %20, keeps A-Z a-z 0-9 - _ . ~). */
+    private fun uriEncode(value: String): String = buildString {
+        for (b in value.toByteArray(Charsets.UTF_8)) {
+            val i = b.toInt() and 0xff
+            val ch = i.toChar()
+            if (ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' ||
+                ch == '-' || ch == '_' || ch == '.' || ch == '~'
+            ) {
+                append(ch)
+            } else {
+                append("%%%02X".format(i))
+            }
         }
     }
 
     private fun sha256Hex(data: ByteArray): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(data)
-        return bytesToHex(hash)
+        return bytesToHex(digest.digest(data))
     }
 
     private fun hmacSha256(key: ByteArray, data: String): ByteArray {

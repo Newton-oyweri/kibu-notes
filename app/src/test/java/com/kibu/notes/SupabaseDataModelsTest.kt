@@ -2,148 +2,201 @@ package com.kibu.notes
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.common.truth.Truth.assertThat
+import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.AcademicUnit
 import com.kibu.notes.data.models.Programme
 import com.kibu.notes.data.models.ProgrammeUnit
 import com.kibu.notes.data.models.Resource
 import com.kibu.notes.data.models.School
-import com.google.common.truth.Truth.assertThat
-import com.kibu.notes.data.SupabaseRepository
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.serialization.json.Json
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class SupabaseDataModelsTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    // Test data is generated, nothing is hardcoded.
+    private fun uuid() = UUID.randomUUID().toString()
+
+    private fun now(): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date())
+
     @Test
     fun schoolDeserialization() {
+        val id = uuid()
+        val name = "school_${uuid()}"
+        val code = "code_${uuid().take(6)}"
+        val createdAt = now()
+
         val jsonText = """
             {
-                "id": "e4a282f1-63bf-4d89-a2e6-7b47e5b602df",
-                "name": "School of Computing and Informatics",
-                "code": "SCI",
-                "created_at": "2026-03-01T10:00:00Z"
+                "id": "$id",
+                "name": "$name",
+                "code": "$code",
+                "created_at": "$createdAt"
             }
         """.trimIndent()
 
         val school = json.decodeFromString<School>(jsonText)
-        assertThat(school.id).isEqualTo("e4a282f1-63bf-4d89-a2e6-7b47e5b602df")
-        assertThat(school.name).isEqualTo("School of Computing and Informatics")
-        assertThat(school.code).isEqualTo("SCI")
-        assertThat(school.createdAt).isEqualTo("2026-03-01T10:00:00Z")
+        assertThat(school.id).isEqualTo(id)
+        assertThat(school.name).isEqualTo(name)
+        assertThat(school.code).isEqualTo(code)
+        assertThat(school.createdAt).isEqualTo(createdAt)
     }
 
     @Test
     fun programmeDeserialization() {
+        val id = uuid()
+        val schoolId = uuid()
+        val title = "programme_${uuid()}"
+        val code = "code_${uuid().take(6)}"
+        val durationYears = (1..6).random()
+
         val jsonText = """
             {
-                "id": "11111111-2222-3333-4444-555555555555",
-                "school_id": "e4a282f1-63bf-4d89-a2e6-7b47e5b602df",
-                "title": "Bachelor of Science in Computer Science",
-                "code": "BSc CS",
-                "duration_years": 4,
-                "created_at": "2026-03-01T10:00:00Z"
+                "id": "$id",
+                "school_id": "$schoolId",
+                "title": "$title",
+                "code": "$code",
+                "duration_years": $durationYears,
+                "created_at": "${now()}"
             }
         """.trimIndent()
 
         val programme = json.decodeFromString<Programme>(jsonText)
-        assertThat(programme.id).isEqualTo("11111111-2222-3333-4444-555555555555")
-        assertThat(programme.schoolId).isEqualTo("e4a282f1-63bf-4d89-a2e6-7b47e5b602df")
-        assertThat(programme.title).isEqualTo("Bachelor of Science in Computer Science")
-        assertThat(programme.code).isEqualTo("BSc CS")
-        assertThat(programme.durationYears).isEqualTo(4)
+        assertThat(programme.id).isEqualTo(id)
+        assertThat(programme.schoolId).isEqualTo(schoolId)
+        assertThat(programme.title).isEqualTo(title)
+        assertThat(programme.code).isEqualTo(code)
+        assertThat(programme.durationYears).isEqualTo(durationYears)
     }
 
     @Test
     fun academicUnitDeserialization() {
+        val id = uuid()
+        val code = "code_${uuid().take(6)}"
+        val title = "unit_${uuid()}"
+
         val jsonText = """
             {
-                "id": "unit-123",
-                "code": "CSC 110",
-                "title": "Fundamentals of Computing",
-                "created_at": "2026-03-01T10:00:00Z"
+                "id": "$id",
+                "code": "$code",
+                "title": "$title",
+                "created_at": "${now()}"
             }
         """.trimIndent()
 
         val unit = json.decodeFromString<AcademicUnit>(jsonText)
-        assertThat(unit.id).isEqualTo("unit-123")
-        assertThat(unit.code).isEqualTo("CSC 110")
-        assertThat(unit.title).isEqualTo("Fundamentals of Computing")
+        assertThat(unit.id).isEqualTo(id)
+        assertThat(unit.code).isEqualTo(code)
+        assertThat(unit.title).isEqualTo(title)
     }
 
     @Test
     fun programmeUnitDeserialization() {
+        val id = uuid()
+        val programmeId = uuid()
+        val unitId = uuid()
+        val academicYear = (1..6).random()
+        val semester = (1..3).random()
+
         val jsonText = """
             {
-                "id": "pu-123",
-                "programme_id": "prog-1",
-                "unit_id": "unit-123",
-                "academic_year": 1,
-                "semester": 2
+                "id": "$id",
+                "programme_id": "$programmeId",
+                "unit_id": "$unitId",
+                "academic_year": $academicYear,
+                "semester": $semester
             }
         """.trimIndent()
 
         val pu = json.decodeFromString<ProgrammeUnit>(jsonText)
-        assertThat(pu.id).isEqualTo("pu-123")
-        assertThat(pu.programmeId).isEqualTo("prog-1")
-        assertThat(pu.unitId).isEqualTo("unit-123")
-        assertThat(pu.academicYear).isEqualTo(1)
-        assertThat(pu.semester).isEqualTo(2)
+        assertThat(pu.id).isEqualTo(id)
+        assertThat(pu.programmeId).isEqualTo(programmeId)
+        assertThat(pu.unitId).isEqualTo(unitId)
+        assertThat(pu.academicYear).isEqualTo(academicYear)
+        assertThat(pu.semester).isEqualTo(semester)
     }
 
+    /**
+     * JSON here has EXACTLY the columns of public.resources
+     * (no resource_type, no status, no description, no downloads_count).
+     * If the Resource model still requires a dropped column, this test fails.
+     */
     @Test
     fun resourceDeserialization() {
-        val jsonText = """
-            {
-                "id": "res-999",
-                "unit_id": "unit-123",
-                "topic_id": null,
-                "uploaded_by": null,
-                "title": "CSC 110 Past Paper 2023",
-                "description": "End of semester exam",
-                "resource_type": "past_paper",
-                "file_name": "csc110_2023.pdf",
-                "file_path": "resources/csc110_2023.pdf",
-                "file_size": 204800,
-                "mime_type": "application/pdf",
-                "exam_year": 2023,
-                "academic_year_offered": "2022/2023",
-                "status": "approved",
-                "visibility": "public",
-                "downloads_count": 42,
-                "created_at": "2026-03-01T10:00:00Z",
-                "updated_at": "2026-03-01T10:00:00Z"
-            }
-        """.trimIndent()
+        // resource_category enum values from the schema
+        val categories = listOf("topics", "past_papers", "cats")
 
-        val resource = json.decodeFromString<Resource>(jsonText)
-        assertThat(resource.id).isEqualTo("res-999")
-        assertThat(resource.unitId).isEqualTo("unit-123")
-        assertThat(resource.title).isEqualTo("CSC 110 Past Paper 2023")
-        assertThat(resource.fileName).isEqualTo("csc110_2023.pdf")
-        assertThat(resource.fileSize).isEqualTo(204800L)
-        assertThat(resource.mimeType).isEqualTo("application/pdf")
-        assertThat(resource.downloadsCount).isEqualTo(42)
+        for (category in categories) {
+            val id = uuid()
+            val unitId = uuid()
+            val title = "title_${uuid()}"
+            val fileName = "${uuid()}.pdf"
+            val filePath = "uploads/${unitId}_${id}_$fileName"
+            val fileSize = (1_000L..5_000_000L).random()
+            val createdAt = now()
+
+            val jsonText = """
+                {
+                    "id": "$id",
+                    "unit_id": "$unitId",
+                    "uploaded_by": null,
+                    "title": "$title",
+                    "file_name": "$fileName",
+                    "file_path": "$filePath",
+                    "file_size": $fileSize,
+                    "mime_type": "application/pdf",
+                    "visibility": "public",
+                    "created_at": "$createdAt",
+                    "updated_at": "$createdAt",
+                    "category": "$category"
+                }
+            """.trimIndent()
+
+            val resource = json.decodeFromString<Resource>(jsonText)
+            assertThat(resource.id).isEqualTo(id)
+            assertThat(resource.unitId).isEqualTo(unitId)
+            assertThat(resource.title).isEqualTo(title)
+            assertThat(resource.category).isEqualTo(category)
+            assertThat(resource.fileName).isEqualTo(fileName)
+            assertThat(resource.filePath).isEqualTo(filePath)
+            assertThat(resource.fileSize).isEqualTo(fileSize)
+            assertThat(resource.mimeType).isEqualTo("application/pdf")
+            assertThat(resource.visibility).isEqualTo("public")
+            assertThat(resource.createdAt).isEqualTo(createdAt)
+        }
     }
 
     @Test
     fun localResourceFileAndDownloadStatus() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = SupabaseRepository()
-        val resource = Resource(id = "res-test", fileName = "test_note.pdf")
+        val id = uuid()
+        val fileName = "${uuid()}.pdf"
+        val resource = Resource(id = id, fileName = fileName)
 
         val localFile = repository.getLocalResourceFile(context, resource)
-        assertThat(localFile.name).isEqualTo("res-test_test_note.pdf")
-        assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
+        try {
+            assertThat(localFile.name).isEqualTo("${id}_$fileName")
+            assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
 
-        localFile.writeText("sample pdf content")
-        assertThat(repository.isResourceDownloaded(context, resource)).isTrue()
-
-        localFile.delete()
+            localFile.writeText(uuid())
+            assertThat(repository.isResourceDownloaded(context, resource)).isTrue()
+        } finally {
+            localFile.delete()
+        }
         assertThat(repository.isResourceDownloaded(context, resource)).isFalse()
     }
 }

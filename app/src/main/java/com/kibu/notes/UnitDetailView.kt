@@ -3,18 +3,22 @@ package com.kibu.notes
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.net.Uri
 import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.tabs.TabLayout
 import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.AcademicUnit
@@ -216,19 +220,62 @@ object UnitDetailView {
             setPadding(0, 12, 0, 12)
         }
 
-        val iconView = TextView(context).apply {
-            text = when (res.resourceType.lowercase(Locale.getDefault())) {
-                "past_paper" -> "📝"
-                "topic_note" -> "📄"
-                "summary" -> "📌"
-                "syllabus" -> "📋"
-                "assignment" -> "✏️"
-                else -> "📄"
+        val nameForBadge = res.fileName.ifEmpty { res.title }
+        val ext = nameForBadge.substringAfterLast('.', "").lowercase(Locale.getDefault())
+        val (badgeText, badgeColor) = badgeFor(nameForBadge, null)
+
+        val badgeFrame = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                (40 * context.resources.displayMetrics.density).toInt(),
+                (40 * context.resources.displayMetrics.density).toInt()
+            ).apply {
+                marginEnd = (14 * context.resources.displayMetrics.density).toInt()
             }
-            textSize = 20f
-            setPadding(0, 0, 16, 0)
         }
-        row.addView(iconView)
+
+        val badgeView = TextView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            text = badgeText
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            val bgDrawable = ContextCompat.getDrawable(context, R.drawable.badge_bg)?.mutate()
+            bgDrawable?.setTint(badgeColor)
+            background = bgDrawable
+        }
+        badgeFrame.addView(badgeView)
+
+        val thumbView = ShapeableImageView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+            shapeAppearanceModel = shapeAppearanceModel.toBuilder()
+                .setAllCornerSizes(8 * context.resources.displayMetrics.density)
+                .build()
+        }
+        badgeFrame.addView(thumbView)
+
+        fun checkAndLoadThumb() {
+            if (repository.isResourceDownloaded(context, res)) {
+                val localFile = repository.getLocalResourceFile(context, res)
+                if (localFile.exists()) {
+                    val fileKind = FileKind.detect(ext, null)
+                    if (Thumbs.supported(fileKind, ext)) {
+                        Thumbs.load(context, Uri.fromFile(localFile), ext, thumbView, badgeView)
+                    }
+                }
+            }
+        }
+
+        checkAndLoadThumb()
+        row.addView(badgeFrame)
 
         val infoLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -333,6 +380,7 @@ object UnitDetailView {
 
                             if (downloadedFile != null && downloadedFile.exists()) {
                                 Toast.makeText(context, "Downloaded ${res.title}", Toast.LENGTH_SHORT).show()
+                                checkAndLoadThumb()
                                 updateActionState()
                                 onOpenFile(downloadedFile)
                             } else {

@@ -30,7 +30,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -56,6 +55,53 @@ class UnitDetailActivity : AppCompatActivity() {
                 showBatchUploadBottomSheet(uris)
             }
         }
+    }
+
+    /**
+     * Category picker. Returns values that match the resource_category enum
+     * exactly: topics | past_papers | cats.
+     */
+    private class CategoryPicker(
+        val group: RadioGroup,
+        private val pastPapers: RadioButton,
+        private val cats: RadioButton
+    ) {
+        fun selected(): String = when (group.checkedRadioButtonId) {
+            pastPapers.id -> "past_papers"
+            cats.id -> "cats"
+            else -> "topics"
+        }
+    }
+
+    private fun buildCategoryPicker(): CategoryPicker {
+        val group = RadioGroup(this).apply {
+            orientation = RadioGroup.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 32) }
+        }
+
+        val radioTopics = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_topics)
+            isChecked = true
+        }
+        val radioPastPapers = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_past_papers)
+            setPadding(24, 0, 0, 0)
+        }
+        val radioCats = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.category_cats)
+            setPadding(24, 0, 0, 0)
+        }
+
+        group.addView(radioTopics)
+        group.addView(radioPastPapers)
+        group.addView(radioCats)
+        return CategoryPicker(group, radioPastPapers, radioCats)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -242,35 +288,8 @@ class UnitDetailActivity : AppCompatActivity() {
         }
         dialogLayout.addView(catLabel)
 
-        // Category Radio Group
-        val radioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 32) }
-        }
-
-        val radioTopics = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_topics)
-            isChecked = true
-        }
-        val radioPastPapers = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_past_papers)
-            setPadding(24, 0, 0, 0)
-        }
-        val radioShared = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_shared)
-            setPadding(24, 0, 0, 0)
-        }
-
-        radioGroup.addView(radioTopics)
-        radioGroup.addView(radioPastPapers)
-        radioGroup.addView(radioShared)
-        dialogLayout.addView(radioGroup)
+        val picker = buildCategoryPicker()
+        dialogLayout.addView(picker.group)
 
         // Action Buttons Row
         val buttonsRow = LinearLayout(this).apply {
@@ -292,11 +311,7 @@ class UnitDetailActivity : AppCompatActivity() {
             setIconResource(R.drawable.ic_up)
             setOnClickListener {
                 val chosenTitle = inputEdit.text?.toString().orEmpty().ifEmpty { fileName }
-                val selectedCategory = when (radioGroup.checkedRadioButtonId) {
-                    radioPastPapers.id -> "Past papers"
-                    radioShared.id -> "Shared"
-                    else -> "Topics"
-                }
+                val selectedCategory = picker.selected()
 
                 isEnabled = false
                 text = getString(R.string.uploading)
@@ -323,12 +338,10 @@ class UnitDetailActivity : AppCompatActivity() {
                             }
                         }
 
-                        val res = uploadResult.getOrNull()
-                        if (res != null) {
+                        if (uploadResult.isSuccess) {
                             Toast.makeText(this@UnitDetailActivity, getString(R.string.upload_success), Toast.LENGTH_SHORT).show()
                             dialog.dismiss()
                             renderView()
-                            showCreditDialog(res.id)
                         } else {
                             val err = uploadResult.exceptionOrNull()?.message ?: getString(R.string.upload_failed)
                             Toast.makeText(this@UnitDetailActivity, err, Toast.LENGTH_LONG).show()
@@ -428,34 +441,8 @@ class UnitDetailActivity : AppCompatActivity() {
         }
         dialogLayout.addView(catLabel)
 
-        val radioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 32) }
-        }
-
-        val radioTopics = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_topics)
-            isChecked = true
-        }
-        val radioPastPapers = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_past_papers)
-            setPadding(24, 0, 0, 0)
-        }
-        val radioShared = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.category_shared)
-            setPadding(24, 0, 0, 0)
-        }
-
-        radioGroup.addView(radioTopics)
-        radioGroup.addView(radioPastPapers)
-        radioGroup.addView(radioShared)
-        dialogLayout.addView(radioGroup)
+        val picker = buildCategoryPicker()
+        dialogLayout.addView(picker.group)
 
         val buttonsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -475,14 +462,10 @@ class UnitDetailActivity : AppCompatActivity() {
             text = getString(R.string.upload_all, uris.size)
             setIconResource(R.drawable.ic_up)
             setOnClickListener {
-                val selectedCategory = when (radioGroup.checkedRadioButtonId) {
-                    radioPastPapers.id -> "Past papers"
-                    radioShared.id -> "Shared"
-                    else -> "Topics"
-                }
+                val selectedCategory = picker.selected()
 
                 isEnabled = false
-                val uploadedIds = mutableListOf<String>()
+                var uploadedCount = 0
 
                 lifecycleScope.launch {
                     uris.forEachIndexed { index, uri ->
@@ -509,9 +492,8 @@ class UnitDetailActivity : AppCompatActivity() {
                                     )
                                 }
                             }
-                            val res = uploadResult.getOrNull()
-                            if (res != null) {
-                                uploadedIds.add(res.id)
+                            if (uploadResult.isSuccess) {
+                                uploadedCount++
                             } else {
                                 val err = uploadResult.exceptionOrNull()?.message.orEmpty()
                                 if (err.isNotEmpty()) {
@@ -521,11 +503,10 @@ class UnitDetailActivity : AppCompatActivity() {
                         }
                     }
 
-                    if (uploadedIds.isNotEmpty()) {
-                        Toast.makeText(this@UnitDetailActivity, getString(R.string.batch_upload_success, uploadedIds.size), Toast.LENGTH_SHORT).show()
+                    if (uploadedCount > 0) {
+                        Toast.makeText(this@UnitDetailActivity, getString(R.string.batch_upload_success, uploadedCount), Toast.LENGTH_SHORT).show()
                         dialog.dismiss()
                         renderView()
-                        showBatchCreditDialog(uploadedIds)
                     } else {
                         Toast.makeText(this@UnitDetailActivity, getString(R.string.upload_failed), Toast.LENGTH_SHORT).show()
                         isEnabled = true
@@ -541,90 +522,6 @@ class UnitDetailActivity : AppCompatActivity() {
 
         dialog.setContentView(dialogLayout)
         dialog.show()
-    }
-
-    private fun showBatchCreditDialog(resourceIds: List<String>) {
-        val inputLayout = TextInputLayout(this).apply {
-            hint = getString(R.string.your_name_hint)
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setPadding(48, 24, 48, 0)
-        }
-        val inputEdit = TextInputEditText(this)
-        inputLayout.addView(inputEdit)
-
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(inputLayout)
-        }
-
-        val alertDialog = MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.thanks_for_sharing_title))
-            .setMessage(getString(R.string.thanks_for_sharing_question))
-            .setView(container)
-            .setPositiveButton(getString(R.string.save_name)) { _, _ ->
-                val name = inputEdit.text?.toString().orEmpty().trim()
-                if (name.isNotEmpty()) {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            resourceIds.forEach { resId ->
-                                supabaseRepository.updateResourceDescription(
-                                    context = this@UnitDetailActivity,
-                                    resourceId = resId,
-                                    description = name
-                                )
-                            }
-                        }
-                        renderView()
-                    }
-                }
-            }
-            .setNegativeButton(getString(R.string.skip)) { d, _ ->
-                d.dismiss()
-            }
-            .create()
-
-        alertDialog.show()
-    }
-
-    private fun showCreditDialog(resourceId: String) {
-        val inputLayout = TextInputLayout(this).apply {
-            hint = getString(R.string.your_name_hint)
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setPadding(48, 24, 48, 0)
-        }
-        val inputEdit = TextInputEditText(this)
-        inputLayout.addView(inputEdit)
-
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(inputLayout)
-        }
-
-        val alertDialog = MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.thanks_for_sharing_title))
-            .setMessage(getString(R.string.thanks_for_sharing_question))
-            .setView(container)
-            .setPositiveButton(getString(R.string.save_name)) { _, _ ->
-                val name = inputEdit.text?.toString().orEmpty().trim()
-                if (name.isNotEmpty()) {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            supabaseRepository.updateResourceDescription(
-                                context = this@UnitDetailActivity,
-                                resourceId = resourceId,
-                                description = name
-                            )
-                        }
-                        renderView()
-                    }
-                }
-            }
-            .setNegativeButton(getString(R.string.skip)) { d, _ ->
-                d.dismiss()
-            }
-            .create()
-
-        alertDialog.show()
     }
 
     private fun getFileNameFromUri(uri: Uri): String {

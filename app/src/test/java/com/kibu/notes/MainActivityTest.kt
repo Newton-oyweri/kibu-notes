@@ -285,24 +285,6 @@ class MainActivityTest {
         assertThat(rows.filter { it.isPressed }).isEmpty()
     }
 
-    @Test
-    fun swipingLeftToRightOpensKibuTrendsPage() {
-        val controller = home()
-        val activity = controller.get()
-        val kibuTrendsPage = activity.findViewById<View>(R.id.kibuTrendsPage)
-        assertThat(kibuTrendsPage).isNotNull()
-        assertThat(kibuTrendsPage.visibility).isEqualTo(View.GONE)
-
-        val down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 100f, 0)
-        val move = MotionEvent.obtain(0, 50, MotionEvent.ACTION_MOVE, 300f, 100f, 0)
-        val up = MotionEvent.obtain(0, 100, MotionEvent.ACTION_UP, 300f, 100f, 0)
-        activity.dispatchTouchEvent(down)
-        activity.dispatchTouchEvent(move)
-        activity.dispatchTouchEvent(up)
-        shadowOf(context.mainLooper).idle()
-        assertThat(kibuTrendsPage.visibility).isEqualTo(View.VISIBLE)
-    }
-
     // ---------------------------------------------------------------
     // Layout
     // ---------------------------------------------------------------

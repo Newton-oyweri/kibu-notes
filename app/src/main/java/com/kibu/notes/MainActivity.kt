@@ -19,7 +19,6 @@ import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.view.Gravity
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewAnimationUtils
@@ -37,7 +36,6 @@ import android.widget.TextView
 import android.widget.Toast
 import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.Resource
-import com.kibu.notes.data.models.TrendPost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -88,8 +86,6 @@ class MainActivity : AppCompatActivity() {
      */
     private data class Crumb(val treeUri: Uri, val docId: String, val label: String)
 
-    lateinit var kibuTrendsPage: FrameLayout
-    private lateinit var gestureDetector: GestureDetector
     private val stack = ArrayDeque<Crumb>()
     private val adapter = RowAdapter()
     private lateinit var toolbar: MaterialToolbar
@@ -108,11 +104,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
-    internal lateinit var trendsView: View
-    private lateinit var trendsPromoImage: ImageView
-    private lateinit var trendsLoadingProgress: View
-    private lateinit var trendsImageCard: View
-    private var trendsBitmap: Bitmap? = null
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -166,30 +157,10 @@ class MainActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
-            if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE) {
-                hideKibuTrendsPage()
-                return
-            }
             if (stack.isNotEmpty()) {
                 stack.removeLast()
                 render()
             }
-        }
-    }
-
-    fun showKibuTrendsPage() {
-        if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility != View.VISIBLE) {
-            kibuTrendsPage.visibility = View.VISIBLE
-            if (::fab.isInitialized) fab.hide()
-            backCallback.isEnabled = true
-        }
-    }
-
-    fun hideKibuTrendsPage() {
-        if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE) {
-            kibuTrendsPage.visibility = View.GONE
-            if (::fab.isInitialized) fab.show()
-            backCallback.isEnabled = stack.isNotEmpty()
         }
     }
 
@@ -220,33 +191,6 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
-
-        kibuTrendsPage = findViewById(R.id.kibuTrendsPage)
-
-        ViewCompat.setOnApplyWindowInsetsListener(kibuTrendsPage) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            WindowInsetsCompat.CONSUMED
-        }
-
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float
-            ): Boolean {
-                if (e1 != null && e2.x - e1.x > 100 && abs(e2.x - e1.x) > abs(e2.y - e1.y)) {
-                    if (::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility != View.VISIBLE) {
-                        showKibuTrendsPage()
-                        return true
-                    }
-                }
-                return false
-            }
-        })
 
         toolbar = findViewById(R.id.toolbar)
         lockup = findViewById(R.id.lockup)
@@ -352,94 +296,6 @@ class MainActivity : AppCompatActivity() {
             adapter = foldersAdapter
         }
 
-        // Trends View (Page 2)
-        val trendsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipToPadding = false
-            setPadding(
-                (16 * resources.displayMetrics.density).toInt(),
-                (16 * resources.displayMetrics.density).toInt(),
-                (16 * resources.displayMetrics.density).toInt(),
-                (200 * resources.displayMetrics.density).toInt()
-            )
-        }
-
-        trendsLoadingProgress = CircularProgressIndicator(this).apply {
-            isIndeterminate = true
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.CENTER_HORIZONTAL
-                setMargins(0, 32, 0, 32)
-            }
-        }
-        trendsContainer.addView(trendsLoadingProgress)
-
-        trendsPromoImage = ImageView(this).apply {
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        trendsImageCard = MaterialCardView(this).apply {
-            radius = 20 * resources.displayMetrics.density
-            cardElevation = 2 * resources.displayMetrics.density
-            strokeWidth = (1 * resources.displayMetrics.density).toInt()
-            setStrokeColor(
-                ColorStateList.valueOf(
-                    MaterialColors.getColor(this, MaterialR.attr.colorOutlineVariant)
-                )
-            )
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = (16 * resources.displayMetrics.density).toInt()
-            }
-            addView(trendsPromoImage)
-        }
-        trendsContainer.addView(trendsImageCard)
-
-        val trendsHeader = TextView(this).apply {
-            text = getString(R.string.kibu_trends)
-            setTextAppearance(MaterialR.style.TextAppearance_Material3_TitleLarge)
-            setTextColor(MaterialColors.getColor(this, MaterialR.attr.colorPrimary))
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 8, 0, 12)
-        }
-        trendsContainer.addView(trendsHeader)
-
-        val trendsAdapter = TrendsAdapter(onShareClicked = { shareGander() })
-        val trendsRecyclerView = RecyclerView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            isNestedScrollingEnabled = false
-            adapter = trendsAdapter
-        }
-        trendsContainer.addView(trendsRecyclerView)
-        loadTrendPosts(trendsAdapter)
-
-        trendsView = ScrollView(this).apply {
-            isFillViewport = true
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            addView(trendsContainer)
-        }
-
-        loadTrendsPromoImage()
-
-        kibuTrendsPage.addView(trendsView)
-
         viewPager.adapter = HomePagerAdapter(listOf(myUnitsView, recentsList, foldersList))
         viewPager.offscreenPageLimit = 2
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
@@ -469,55 +325,7 @@ class MainActivity : AppCompatActivity() {
 
 
 
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (::gestureDetector.isInitialized) {
-            gestureDetector.onTouchEvent(ev)
-        }
-        return super.dispatchTouchEvent(ev)
-    }
 
-    private fun loadTrendsPromoImage() {
-        if (trendsBitmap != null) {
-            trendsPromoImage.setImageBitmap(trendsBitmap)
-            trendsLoadingProgress.visibility = View.GONE
-            trendsImageCard.visibility = View.VISIBLE
-            return
-        }
-        trendsLoadingProgress.visibility = View.VISIBLE
-        trendsImageCard.visibility = View.GONE
-        CoroutineScope(Dispatchers.IO).launch {
-            val bmp = runCatching {
-                val url = URL("https://pub-937848871caa438bb7b53c74c18ed261.r2.dev/charity.jpg")
-                val conn = url.openConnection()
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
-                conn.getInputStream().use { stream ->
-                    BitmapFactory.decodeStream(stream)
-                }
-            }.getOrNull()
-
-            withContext(Dispatchers.Main) {
-                if (bmp != null) {
-                    trendsBitmap = bmp
-                    trendsPromoImage.setImageBitmap(bmp)
-                    trendsLoadingProgress.visibility = View.GONE
-                    trendsImageCard.visibility = View.VISIBLE
-                }
-            }
-        }
-    }
-
-    private fun loadTrendPosts(trendsAdapter: TrendsAdapter) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val posts = runCatching {
-                supabaseRepository.getTrendPosts(this@MainActivity)
-            }.getOrDefault(emptyList())
-
-            withContext(Dispatchers.Main) {
-                trendsAdapter.submitList(posts)
-            }
-        }
-    }
 
     /**
      * Keeps the reader where they were browsing across a configuration change.
@@ -774,13 +582,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun render() {
         val here = stack.lastOrNull()
-        val isKibuTrendsPageOpen = ::kibuTrendsPage.isInitialized && kibuTrendsPage.visibility == View.VISIBLE
-        backCallback.isEnabled = here != null || isKibuTrendsPageOpen
-
-        if (isKibuTrendsPageOpen) {
-            if (::fab.isInitialized) fab.hide()
-            return
-        }
+        backCallback.isEnabled = here != null
 
         toolbar.title = here?.label.orEmpty()
         lockup.visibility = if (here == null) View.VISIBLE else View.GONE

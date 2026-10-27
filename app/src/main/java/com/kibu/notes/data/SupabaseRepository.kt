@@ -6,11 +6,12 @@ import com.kibu.notes.data.models.Programme
 import com.kibu.notes.data.models.ProgrammeUnit
 import com.kibu.notes.data.models.Resource
 import com.kibu.notes.data.models.School
-import com.kibu.notes.data.models.TrendPost
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -18,7 +19,28 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
+
+/**
+ * Insert payload that matches public.resources EXACTLY.
+ * Columns left out on purpose (DB fills them): created_at, updated_at.
+ * uploaded_by is nullable (FK to auth.users, on delete set null).
+ * There is NO "description" column in the table, so it must never be sent.
+ */
+@Serializable
+private data class ResourceInsert(
+    val id: String,
+    @SerialName("unit_id") val unitId: String,
+    @SerialName("uploaded_by") val uploadedBy: String? = null,
+    val title: String,
+    @SerialName("file_name") val fileName: String,
+    @SerialName("file_path") val filePath: String,
+    @SerialName("file_size") val fileSize: Long,
+    @SerialName("mime_type") val mimeType: String,
+    val visibility: String,
+    val category: String
+)
 
 open class SupabaseRepository {
 
@@ -88,24 +110,30 @@ open class SupabaseRepository {
         }
     }
 
+    /**
+     * Uses the same shape as idx_resources_lookup (unit_id, visibility),
+     * so the query hits the index. Falls back to cached resources when offline.
+     */
     open suspend fun getResourcesByUnit(unitId: String, context: Context? = null): List<Resource> {
-        val cleanUnitId = unitId.trim().lowercase(Locale.US)
-        val all = runCatching { getAllResources(context) }.getOrNull()
-            ?: context?.let { LocalCache.loadResources(it) }.orEmpty()
-        val matching = all.filter { it.unitId.trim().lowercase(Locale.US) == cleanUnitId }
-
-        val remoteMatching = runCatching {
+        val cleanUnitId = unitId.trim()
+        val remote = runCatching {
             client.from("resources")
                 .select {
                     filter {
-                        eq("unit_id", unitId.trim())
+                        eq("unit_id", cleanUnitId)
+                        eq("visibility", "public")
                     }
                 }
                 .decodeList<Resource>()
-        }.getOrNull().orEmpty()
+        }.getOrNull()
 
-        val combined = (matching + remoteMatching).distinctBy { it.id }
-        return combined
+        if (remote != null) return remote
+
+        val cached = context?.let { LocalCache.loadResources(it) }.orEmpty()
+        return cached.filter {
+            it.unitId.trim().equals(cleanUnitId, ignoreCase = true) &&
+                    it.visibility == "public"
+        }
     }
 
     open suspend fun getAllResources(context: Context? = null): List<Resource> {
@@ -116,18 +144,6 @@ open class SupabaseRepository {
             remote
         } catch (e: Exception) {
             cached ?: throw e
-        }
-    }
-
-    open suspend fun getTrendPosts(context: Context? = null): List<TrendPost> {
-        return try {
-            client.from("trends").select().decodeList<TrendPost>()
-        } catch (e: Exception) {
-            try {
-                client.from("trend_posts").select().decodeList<TrendPost>()
-            } catch (e2: Exception) {
-                emptyList()
-            }
         }
     }
 
@@ -148,7 +164,7 @@ open class SupabaseRepository {
     }
 
     companion object {
-        const val R2_PUBLIC_BASE_URL = "https://pub-937848871caa438bb7b53c74c18ed261.r2.dev"
+        const val R2_PUBLIC_BASE_URL = CloudflareR2.PUBLIC_URL
     }
 
     fun resolvePublicUrl(filePath: String): String {
@@ -195,6 +211,11 @@ open class SupabaseRepository {
         return file
     }
 
+    private fun utcNow(): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date())
+
     open suspend fun uploadResource(
         context: Context,
         unitId: String,
@@ -205,20 +226,18 @@ open class SupabaseRepository {
         mimeType: String
     ): Resource {
         val id = UUID.randomUUID().toString()
+
+        // Must match the resource_category enum exactly: topics | past_papers | cats
         val safeCategory = when (category.lowercase(Locale.US).trim()) {
-            "topics", "topic" -> "topics"
-            "past papers", "past_paper", "past paper" -> "past_papers"
-            else -> "shared"
-        }
-        val resourceType = when (safeCategory) {
-            "topics" -> "topic_note"
-            "past_papers" -> "past_paper"
-            else -> "shared"
+            "past papers", "past paper", "past_paper", "past_papers" -> "past_papers"
+            "cats", "cat", "cat papers" -> "cats"
+            else -> "topics"
         }
         val safeFileName = fileName.ifEmpty { "document_$id.pdf" }
-        val objectKey = "uploads/${unitId.trim()}_${id}_$safeFileName"
+        val cleanUnitId = unitId.trim()
+        val objectKey = "uploads/${cleanUnitId}_${id}_$safeFileName"
 
-        // Step 1: Upload file bytes directly to Cloudflare R2 first and obtain public URL
+        // Step 1: upload file bytes to Cloudflare R2 (fallback: Supabase Storage)
         val publicUrl = try {
             CloudflareR2.uploadFile(objectKey, fileBytes, mimeType)
         } catch (e: Exception) {
@@ -226,65 +245,60 @@ open class SupabaseRepository {
                 client.storage.from("resources").upload(objectKey, fileBytes) {
                     upsert = true
                 }
-                "$R2_PUBLIC_BASE_URL/$objectKey"
+                // Point file_path at where the file actually landed (Supabase, not R2)
+                client.storage.from("resources").publicUrl(objectKey)
             } catch (e2: Exception) {
                 throw IOException("Cloudflare R2 upload failed: ${e.message}", e)
             }
         }
 
-        val resource = Resource(
-            id = id,
-            unitId = unitId.trim(),
-            title = title.ifEmpty { safeFileName },
-            category = safeCategory,
-            resourceType = resourceType,
-            fileName = safeFileName,
-            filePath = publicUrl,
-            fileSize = fileBytes.size.toLong(),
-            mimeType = mimeType,
-            status = "approved",
-            visibility = "public",
-            createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
-        )
+        val finalTitle = title.ifEmpty { safeFileName }
 
-        // Step 2: Insert database record in public.resources only after storage upload succeeds
+        // Step 2: insert row into public.resources (only real columns)
         try {
-            client.from("resources").insert(resource)
+            client.from("resources").insert(
+                ResourceInsert(
+                    id = id,
+                    unitId = cleanUnitId,
+                    uploadedBy = null,
+                    title = finalTitle,
+                    fileName = safeFileName,
+                    filePath = publicUrl,
+                    fileSize = fileBytes.size.toLong(),
+                    mimeType = mimeType,
+                    visibility = "public",
+                    category = safeCategory
+                )
+            )
         } catch (e: Exception) {
             throw IOException("Database record creation failed: ${e.message}", e)
         }
 
-        // Step 3: Save to local cache & disk for immediate offline access
-        context.let { ctx ->
-            val current = runCatching { getAllResources(ctx) }.getOrDefault(emptyList()).toMutableList()
-            current.removeAll { it.id == resource.id }
-            current.add(0, resource)
-            LocalCache.saveResources(ctx, current)
+        val resource = Resource(
+            id = id,
+            unitId = cleanUnitId,
+            title = finalTitle,
+            category = safeCategory,
+            fileName = safeFileName,
+            filePath = publicUrl,
+            fileSize = fileBytes.size.toLong(),
+            mimeType = mimeType,
+            visibility = "public",
+            createdAt = utcNow()
+        )
 
-            val file = getLocalResourceFile(ctx, resource)
-            withContext(Dispatchers.IO) {
-                file.writeBytes(fileBytes)
-            }
+        // Step 3: local cache + disk for instant offline access
+        val current = runCatching { getAllResources(context) }.getOrDefault(emptyList()).toMutableList()
+        current.removeAll { it.id == resource.id }
+        current.add(0, resource)
+        LocalCache.saveResources(context, current)
+
+        val file = getLocalResourceFile(context, resource)
+        withContext(Dispatchers.IO) {
+            file.writeBytes(fileBytes)
         }
 
         return resource
     }
 
-    open suspend fun updateResourceDescription(context: Context, resourceId: String, description: String) {
-        runCatching {
-            client.from("resources").update(mapOf("description" to description)) {
-                filter {
-                    eq("id", resourceId)
-                }
-            }
-        }
-        context.let { ctx ->
-            val cached = LocalCache.loadResources(ctx)?.toMutableList() ?: mutableListOf()
-            val index = cached.indexOfFirst { it.id == resourceId }
-            if (index >= 0) {
-                cached[index] = cached[index].copy(description = description)
-                LocalCache.saveResources(ctx, cached)
-            }
-        }
-    }
 }

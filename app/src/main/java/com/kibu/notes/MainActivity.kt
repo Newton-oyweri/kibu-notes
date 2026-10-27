@@ -28,6 +28,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
+    private lateinit var themeToggleBtn: ImageButton
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -194,6 +196,15 @@ class MainActivity : AppCompatActivity() {
 
         toolbar = findViewById(R.id.toolbar)
         lockup = findViewById(R.id.lockup)
+        themeToggleBtn = findViewById(R.id.themeToggleBtn)
+        updateThemeToggleIcon()
+        themeToggleBtn.setOnClickListener {
+            val isDark = Settings.isAppDarkTheme(this)
+            val newDark = !isDark
+            Settings.setAppDarkTheme(this, newDark)
+            Settings.applyAppTheme(this)
+            updateThemeToggleIcon()
+        }
         toolbar.setNavigationOnClickListener { backCallback.handleOnBackPressed() }
         // render() rewrites the title and navigation icon on every resume and on
         // every folder change, but never touches the menu, so inflating once here
@@ -580,12 +591,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateThemeToggleIcon() {
+        val isDark = Settings.isAppDarkTheme(this)
+        themeToggleBtn.setImageResource(
+            if (isDark) R.drawable.ic_theme_light else R.drawable.ic_theme_dark
+        )
+        themeToggleBtn.contentDescription = getString(
+            if (isDark) R.string.switch_to_light_mode else R.string.switch_to_dark_mode
+        )
+    }
+
     private fun render() {
         val here = stack.lastOrNull()
         backCallback.isEnabled = here != null
 
         toolbar.title = here?.label.orEmpty()
         lockup.visibility = if (here == null) View.VISIBLE else View.GONE
+        themeToggleBtn.visibility = if (here == null) View.VISIBLE else View.GONE
         toolbar.navigationIcon =
             if (here == null) null
             else AppCompatResources.getDrawable(this, R.drawable.ic_back)

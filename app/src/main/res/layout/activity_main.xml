@@ -26,6 +26,16 @@
                 android:layout_height="?attr/actionBarSize"
                 app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
 
+            <ImageButton
+                android:id="@+id/themeToggleBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/toggle_theme"
+                android:src="@drawable/ic_theme_dark" />
+
             <!-- Shown only at the root; render() hides it inside a folder, where the
                  toolbar's own title carries the folder name beside the back arrow. -->
             <LinearLayout

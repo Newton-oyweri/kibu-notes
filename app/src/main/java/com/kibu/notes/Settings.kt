@@ -1,6 +1,7 @@
 package com.kibu.notes
 
 import android.content.Context
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 
 /**
@@ -18,9 +19,30 @@ object Settings {
 
     private const val PREFS = "viewer"
     private const val KEY_NIGHT = "night"
+    private const val KEY_APP_THEME_NIGHT = "app_theme_night"
     private const val KEY_SELECTED_COURSE = "selected_course"
     private const val KEY_SELECTED_YEAR = "selected_year"
     private const val KEY_SELECTED_SEMESTER = "selected_semester"
+
+    /**
+     * Whether app-wide dark mode is active. Defaults to true (Dark Mode).
+     */
+    fun isAppDarkTheme(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_APP_THEME_NIGHT, true)
+
+    fun setAppDarkTheme(context: Context, dark: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_APP_THEME_NIGHT, dark) }
+    }
+
+    fun applyAppTheme(context: Context) {
+        val dark = isAppDarkTheme(context)
+        val targetMode = if (dark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
+            AppCompatDelegate.setDefaultNightMode(targetMode)
+        }
+    }
 
     /** Whether PDF pages are drawn turned over. See issue #19 and `pdf.html`. */
     fun night(context: Context): Boolean =

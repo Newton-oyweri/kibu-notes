@@ -181,6 +181,9 @@
     <string name="category_shared">Shared</string>
     <string name="about_close">Close</string>
     <string name="no_browser">No app can open links</string>
+    <string name="toggle_theme">Toggle theme</string>
+    <string name="switch_to_light_mode">Switch to light mode</string>
+    <string name="switch_to_dark_mode">Switch to dark mode</string>
     <!-- Becomes the viewer's title, so it reads as the document it is -->
     <string name="licences_file_name" translatable="false">Open source licences.md</string>
     <string name="licences_failed">The licences file can\'t be opened</string>

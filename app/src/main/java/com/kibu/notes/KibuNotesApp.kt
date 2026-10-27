@@ -19,6 +19,7 @@ class KibuNotesApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Settings.applyAppTheme(this)
         // A throwaway daemon thread rather than a pool: this runs once per process.
         val warmUpThread = Executor { r ->
             Thread(r, "webview-warmup").apply { isDaemon = true }.start()

@@ -12,14 +12,21 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.kibu.notes.data.SupabaseRepository
 import com.kibu.notes.data.models.AcademicUnit
 import com.kibu.notes.data.models.Resource
@@ -45,6 +52,10 @@ object UnitDetailView {
     ) {
         container.removeAllViews()
 
+        val onRefresh = {
+            render(context, container, unit, repository, null, onOpenFile)
+        }
+
         val tabLayout = TabLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -52,7 +63,6 @@ object UnitDetailView {
             ).apply { setMargins(16, 16, 16, 16) }
             addTab(newTab().setText("Topics"))
             addTab(newTab().setText("Past papers"))
-
             addTab(newTab().setText("Shared"))
         }
         container.addView(tabLayout)
@@ -67,7 +77,7 @@ object UnitDetailView {
         container.addView(contentContainer)
 
         if (!initialResources.isNullOrEmpty()) {
-            setupTabsAndDisplay(context, contentContainer, initialResources, repository, onOpenFile, tabLayout)
+            setupTabsAndDisplay(context, contentContainer, initialResources, repository, onOpenFile, tabLayout, onRefresh)
             return
         }
 
@@ -98,7 +108,7 @@ object UnitDetailView {
                 }
                 contentContainer.addView(emptyView)
             } else {
-                setupTabsAndDisplay(context, contentContainer, resources, repository, onOpenFile, tabLayout)
+                setupTabsAndDisplay(context, contentContainer, resources, repository, onOpenFile, tabLayout, onRefresh)
             }
         }
     }
@@ -109,7 +119,8 @@ object UnitDetailView {
         resources: List<Resource>,
         repository: SupabaseRepository,
         onOpenFile: (File) -> Unit,
-        tabLayout: TabLayout
+        tabLayout: TabLayout,
+        onRefresh: () -> Unit
     ) {
         fun showTab(tabIndex: Int) {
             contentContainer.removeAllViews()
@@ -146,7 +157,7 @@ object UnitDetailView {
                 }
                 contentContainer.addView(emptyView)
             } else {
-                displayResources(context, contentContainer, filtered, repository, onOpenFile)
+                displayResources(context, contentContainer, filtered, repository, onOpenFile, onRefresh)
             }
         }
 
@@ -167,7 +178,8 @@ object UnitDetailView {
         container: ViewGroup,
         resources: List<Resource>,
         repository: SupabaseRepository,
-        onOpenFile: (File) -> Unit
+        onOpenFile: (File) -> Unit,
+        onRefresh: () -> Unit
     ) {
         val resCard = MaterialCardView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -189,7 +201,7 @@ object UnitDetailView {
         }
 
         resources.forEachIndexed { index, res ->
-            val resRow = createResourceRowView(context, res, repository, onOpenFile)
+            val resRow = createResourceRowView(context, res, repository, onOpenFile, onRefresh)
             resLayout.addView(resRow)
 
             if (index < resources.size - 1) {
@@ -212,12 +224,19 @@ object UnitDetailView {
         context: Context,
         res: Resource,
         repository: SupabaseRepository,
-        onOpenFile: (File) -> Unit
+        onOpenFile: (File) -> Unit,
+        onRefresh: () -> Unit
     ): View {
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 12, 0, 12)
+            isClickable = true
+            isFocusable = true
+            setOnLongClickListener {
+                showReportBottomSheet(context, res, repository, onRefresh)
+                true
+            }
         }
 
         val nameForBadge = res.fileName.ifEmpty { res.title }
@@ -398,6 +417,272 @@ object UnitDetailView {
         row.addView(actionFrame)
 
         return row
+    }
+
+    private fun showReportBottomSheet(
+        context: Context,
+        res: Resource,
+        repository: SupabaseRepository,
+        onResourceUpdated: () -> Unit
+    ) {
+        val dialog = BottomSheetDialog(context)
+
+        val dialogLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 48)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val handleBar = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                (40 * context.resources.displayMetrics.density).toInt(),
+                (4 * context.resources.displayMetrics.density).toInt()
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                setMargins(0, 8, 0, 24)
+            }
+            val bgDrawable = ContextCompat.getDrawable(context, R.drawable.badge_bg)?.mutate()
+            bgDrawable?.setTint(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant))
+            background = bgDrawable
+        }
+        dialogLayout.addView(handleBar)
+
+        val header = TextView(context).apply {
+            text = context.getString(R.string.report_document_title)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 16)
+        }
+        dialogLayout.addView(header)
+
+        val reliableTitle = TextView(context).apply {
+            text = context.getString(R.string.keep_reliable_title)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
+            setPadding(0, 0, 0, 8)
+        }
+        dialogLayout.addView(reliableTitle)
+
+        val reliableMsg = TextView(context).apply {
+            text = context.getString(R.string.keep_reliable_message)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+            setPadding(0, 0, 0, 20)
+        }
+        dialogLayout.addView(reliableMsg)
+
+        val fileCard = MaterialCardView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 24) }
+            cardElevation = 0f
+            strokeWidth = (1 * context.resources.displayMetrics.density).toInt()
+            setStrokeColor(
+                ColorStateList.valueOf(
+                    MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutlineVariant)
+                )
+            )
+        }
+        val fileInfoLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(24, 20, 24, 20)
+
+            addView(TextView(context).apply {
+                text = "📄"
+                textSize = 24f
+                setPadding(0, 0, 20, 0)
+            })
+
+            val textCol = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val docTitle = res.title.ifEmpty { res.fileName }
+            textCol.addView(TextView(context).apply {
+                text = docTitle
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                setTypeface(null, Typeface.BOLD)
+                maxLines = 2
+            })
+            val categoryDisplay = when (res.category.lowercase(Locale.getDefault()).trim()) {
+                "past_papers", "past papers" -> "Past papers"
+                "shared" -> "Shared"
+                else -> "Topics"
+            }
+            textCol.addView(TextView(context).apply {
+                text = context.getString(R.string.current_category, categoryDisplay)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+            })
+            addView(textCol)
+        }
+        fileCard.addView(fileInfoLayout)
+        dialogLayout.addView(fileCard)
+
+        val questionTitle = TextView(context).apply {
+            text = context.getString(R.string.wrong_category_question)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 8)
+        }
+        dialogLayout.addView(questionTitle)
+
+        val questionSub = TextView(context).apply {
+            text = context.getString(R.string.move_category_instruction)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+            setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+            setPadding(0, 0, 0, 16)
+        }
+        dialogLayout.addView(questionSub)
+
+        val radioGroup = RadioGroup(context).apply {
+            orientation = RadioGroup.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 24) }
+        }
+
+        val currentCatClean = res.category.lowercase(Locale.getDefault()).replace("_", " ").trim()
+
+        val radioTopics = RadioButton(context).apply {
+            id = View.generateViewId()
+            text = context.getString(R.string.category_topics)
+            isChecked = currentCatClean.contains("topic")
+        }
+        val radioShared = RadioButton(context).apply {
+            id = View.generateViewId()
+            text = context.getString(R.string.category_shared)
+            isChecked = !currentCatClean.contains("topic") && !currentCatClean.contains("past") && !currentCatClean.contains("paper")
+        }
+        val radioPastPapers = RadioButton(context).apply {
+            id = View.generateViewId()
+            text = context.getString(R.string.category_past_papers)
+            isChecked = currentCatClean.contains("past") || currentCatClean.contains("paper")
+        }
+
+        radioGroup.addView(radioTopics)
+        radioGroup.addView(radioShared)
+        radioGroup.addView(radioPastPapers)
+        dialogLayout.addView(radioGroup)
+
+        val inputLayout = TextInputLayout(context).apply {
+            hint = context.getString(R.string.report_reason_label)
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 24) }
+        }
+        val inputEdit = TextInputEditText(context).apply {
+            minLines = 2
+            maxLines = 4
+        }
+        inputLayout.addView(inputEdit)
+        dialogLayout.addView(inputLayout)
+
+        val buttonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val cancelBtn = MaterialButton(context, null, com.google.android.material.R.attr.borderlessButtonStyle).apply {
+            text = context.getString(android.R.string.cancel)
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        val submitBtn = MaterialButton(context).apply {
+            text = context.getString(R.string.submit_report)
+            setOnClickListener {
+                val selectedCategory = when (radioGroup.checkedRadioButtonId) {
+                    radioPastPapers.id -> "past_papers"
+                    radioShared.id -> "shared"
+                    else -> "topics"
+                }
+
+                val userReason = inputEdit.text?.toString()?.trim().orEmpty()
+                val categoryChanged = selectedCategory != res.category
+
+                val finalReason = when {
+                    userReason.isNotEmpty() -> userReason
+                    categoryChanged -> "Moved category from ${res.category} to $selectedCategory"
+                    else -> "Reported document: ${res.title.ifEmpty { res.fileName }}"
+                }
+
+                isEnabled = false
+                text = context.getString(R.string.submitting)
+
+                CoroutineScope(Dispatchers.Main).launch {
+                    val reportResult = runCatching {
+                        withContext(Dispatchers.IO) {
+                            repository.reportResource(
+                                documentTitle = res.title.ifEmpty { res.fileName },
+                                documentId = res.id,
+                                reason = finalReason
+                            )
+                            if (categoryChanged) {
+                                repository.updateResourceCategory(
+                                    context = context,
+                                    resourceId = res.id,
+                                    newCategory = selectedCategory
+                                )
+                            }
+                        }
+                    }
+
+                    if (reportResult.isSuccess) {
+                        Toast.makeText(context, context.getString(R.string.thank_you_feedback), Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        onResourceUpdated()
+                    } else {
+                        val err = reportResult.exceptionOrNull()?.message ?: "Failed to submit report"
+                        Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                        isEnabled = true
+                        text = context.getString(R.string.submit_report)
+                    }
+                }
+            }
+        }
+
+        buttonsRow.addView(cancelBtn)
+        buttonsRow.addView(submitBtn)
+        dialogLayout.addView(buttonsRow)
+
+        val scrollView = ScrollView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            isFillViewport = true
+        }
+        scrollView.addView(dialogLayout)
+
+        dialog.setContentView(scrollView)
+
+        dialog.setOnShowListener { dialogInterface ->
+            val bottomSheetDialog = dialogInterface as BottomSheetDialog
+            val bottomSheet = bottomSheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) as? FrameLayout
+            bottomSheet?.let { sheet ->
+                val behavior = BottomSheetBehavior.from(sheet)
+                val displayMetrics = context.resources.displayMetrics
+                val targetHeight = (displayMetrics.heightPixels * 0.75).toInt()
+                sheet.layoutParams.height = targetHeight
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                behavior.skipCollapsed = true
+            }
+        }
+
+        dialog.show()
     }
 
     fun cancelJob() {

@@ -42,6 +42,18 @@ private data class ResourceInsert(
     val category: String
 )
 
+@Serializable
+private data class ResourceReportInsert(
+    @SerialName("document_title") val documentTitle: String,
+    @SerialName("document_id") val documentId: String,
+    val reason: String
+)
+
+@Serializable
+private data class ResourceCategoryUpdate(
+    val category: String
+)
+
 open class SupabaseRepository {
 
     private val client by lazy { Supabase.client }
@@ -299,6 +311,50 @@ open class SupabaseRepository {
         }
 
         return resource
+    }
+
+    open suspend fun reportResource(
+        documentTitle: String,
+        documentId: String,
+        reason: String
+    ) {
+        client.from("resource_reports").insert(
+            ResourceReportInsert(
+                documentTitle = documentTitle,
+                documentId = documentId,
+                reason = reason
+            )
+        )
+    }
+
+    open suspend fun updateResourceCategory(
+        context: Context? = null,
+        resourceId: String,
+        newCategory: String
+    ) {
+        val safeCategory = when (newCategory.lowercase(Locale.US).trim()) {
+            "past papers", "past paper", "past_paper", "past_papers" -> "past_papers"
+            "cats", "cat", "cat papers" -> "cats"
+            "shared" -> "shared"
+            else -> "topics"
+        }
+        client.from("resources").update(
+            ResourceCategoryUpdate(category = safeCategory)
+        ) {
+            filter {
+                eq("id", resourceId)
+            }
+        }
+        context?.let { ctx ->
+            val cached = LocalCache.loadResources(ctx)?.toMutableList()
+            if (cached != null) {
+                val idx = cached.indexOfFirst { it.id == resourceId }
+                if (idx != -1) {
+                    cached[idx] = cached[idx].copy(category = safeCategory)
+                    LocalCache.saveResources(ctx, cached)
+                }
+            }
+        }
     }
 
 }

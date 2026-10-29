@@ -214,4 +214,16 @@
     <string name="search_toast_downloading">Downloading %1$s…</string>
     <string name="search_toast_download_failed">Failed to download study material</string>
     <string name="search_toast_unable_to_open">Unable to open file</string>
+
+    <string name="report_document_title">Report &amp; Move Document</string>
+    <string name="keep_reliable_title">Help Us Keep Kibabii Notes Reliable</string>
+    <string name="keep_reliable_message">Kibabii Notes relies on our community to help keep learning resources accurate, relevant, and accessible to everyone. If you notice a document that is incorrect, mislabelled, outdated, broken, inappropriate, or raises a copyright concern, please report it with a clear and honest reason. Every report helps us review and improve the quality of resources available to students. Please use this feature responsibly and only report genuine concerns. Together, we can make Kibabii Notes a more reliable resource for learning.</string>
+    <string name="wrong_category_question">This document is in wrong category?</string>
+    <string name="move_category_instruction">Move to another category:</string>
+    <string name="report_reason_label">Reason for reporting / Feedback</string>
+    <string name="report_reason_hint">Describe the issue or reason for reporting…</string>
+    <string name="submit_report">Submit Report</string>
+    <string name="submitting">Submitting…</string>
+    <string name="thank_you_feedback">Thank you for your feedback!</string>
+    <string name="current_category">Current Category: %1$s</string>
 </resources>

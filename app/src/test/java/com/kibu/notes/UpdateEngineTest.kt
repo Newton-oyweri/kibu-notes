@@ -10,6 +10,20 @@ class UpdateEngineTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
+    fun parseVersionNumberTests() {
+        assertThat(UpdateEngine.parseVersionNumber("V1")).isEqualTo(1.0)
+        assertThat(UpdateEngine.parseVersionNumber("V2")).isEqualTo(2.0)
+        assertThat(UpdateEngine.parseVersionNumber("V5")).isEqualTo(5.0)
+        assertThat(UpdateEngine.parseVersionNumber("5.0")).isEqualTo(5.0)
+        assertThat(UpdateEngine.parseVersionNumber("V5.1")).isEqualTo(5.1)
+        assertThat(UpdateEngine.parseVersionNumber("V6")).isEqualTo(6.0)
+
+        assertThat(UpdateEngine.parseVersionNumber("V5") > UpdateEngine.parseVersionNumber("5.0")).isFalse()
+        assertThat(UpdateEngine.parseVersionNumber("V6") > UpdateEngine.parseVersionNumber("5.0")).isTrue()
+        assertThat(UpdateEngine.parseVersionNumber("V5") > UpdateEngine.parseVersionNumber("2.0")).isTrue()
+    }
+
+    @Test
     fun parseVersionCodeTests() {
         assertThat(UpdateEngine.parseVersionCode("V1")).isEqualTo(1)
         assertThat(UpdateEngine.parseVersionCode("V21")).isEqualTo(21)

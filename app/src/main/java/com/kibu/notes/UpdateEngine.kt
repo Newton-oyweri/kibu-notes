@@ -56,6 +56,17 @@ object UpdateEngine {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    fun parseVersionNumber(versionStr: String): Double {
+        val clean = versionStr.trim().removePrefix("V").removePrefix("v")
+        val parts = clean.split(".")
+        if (parts.size >= 2) {
+            val major = parts[0].filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
+            val minor = parts[1].filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
+            return major + (minor / 10.0)
+        }
+        return clean.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
+    }
+
     fun parseVersionCode(tagName: String): Int {
         val clean = tagName.trim().removePrefix("V").removePrefix("v")
         val digitsOnly = clean.filter { it.isDigit() }
@@ -107,31 +118,26 @@ object UpdateEngine {
                 return@launch
             }
 
-            val latestVersionCode = parseVersionCode(release.tagName)
-            val currentVersionCode = BuildConfig.VERSION_CODE
+            val latestNum = parseVersionNumber(release.tagName)
+            val installedNum = parseVersionNumber(BuildConfig.VERSION_NAME)
 
-            val isNewer = when {
-                latestVersionCode > currentVersionCode -> true
-                latestVersionCode in 1..9 && currentVersionCode >= 10 -> {
-                    // Handles tags like "V4" (Version 4.0) against installed versionCode 21 (Version 2.0)
-                    latestVersionCode > (currentVersionCode / 10)
-                }
-                else -> {
-                    val cleanTag = release.tagName.removePrefix("V").removePrefix("v").trim()
-                    val cleanInstalled = BuildConfig.VERSION_NAME.removePrefix("V").removePrefix("v").trim()
-                    cleanTag.isNotEmpty() && cleanTag != cleanInstalled && cleanTag > cleanInstalled
-                }
+            val isNewer = latestNum > installedNum
+
+            val displayInstalled = "V" + installedNum.toInt()
+            val displayLatest = if (release.tagName.startsWith("V", ignoreCase = true)) {
+                release.tagName.uppercase()
+            } else {
+                "V" + release.tagName
             }
 
-            Log.d("UpdateEngine", "1. Raw tag_name received from GitHub: '${release.tagName}'")
-            Log.d("UpdateEngine", "2. Parsed integer version: $latestVersionCode")
-            Log.d("UpdateEngine", "3. Local BuildConfig.VERSION_CODE: $currentVersionCode (${BuildConfig.VERSION_NAME})")
-            Log.d("UpdateEngine", "4. Is newer version available? -> $isNewer")
+            Log.d("UpdateEngine", "1. Raw tag_name received from GitHub: '${release.tagName}', parsed: $latestNum")
+            Log.d("UpdateEngine", "2. Installed versionName: '${BuildConfig.VERSION_NAME}', parsed: $installedNum")
+            Log.d("UpdateEngine", "3. Is newer version available? -> $isNewer")
 
             if (isNewer) {
-                showUpdateDialog(context, release, apkAsset, BuildConfig.VERSION_NAME, release.tagName)
+                showUpdateDialog(context, release, apkAsset, displayInstalled, displayLatest)
             } else if (!quiet) {
-                Toast.makeText(context, context.getString(R.string.no_update_available, BuildConfig.VERSION_NAME), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.no_update_available, displayInstalled), Toast.LENGTH_SHORT).show()
             }
         }
     }

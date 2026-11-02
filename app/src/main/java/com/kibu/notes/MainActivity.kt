@@ -229,6 +229,8 @@ class MainActivity : AppCompatActivity() {
                 else -> false
             }
         }
+
+        UpdateEngine.checkForUpdates(this, quiet = true)
         progress = findViewById(R.id.loadProgress)
         list = findViewById(R.id.list)
         // One column on a phone, which is exactly what a LinearLayoutManager did, and two
@@ -422,8 +424,8 @@ class MainActivity : AppCompatActivity() {
 
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }
             .getOrNull().orEmpty()
-        view.findViewById<TextView>(R.id.aboutVersion).text =
-            getString(R.string.about_version, version)
+        val versionText = view.findViewById<TextView>(R.id.aboutVersion)
+        versionText.text = getString(R.string.about_version, version)
 
         val permissions = requestedPermissions()
         val field = view.findViewById<TextView>(R.id.aboutPermissions)
@@ -455,6 +457,11 @@ class MainActivity : AppCompatActivity() {
             .setView(view)
             .setPositiveButton(R.string.about_close, null)
             .show()
+
+        versionText.setOnClickListener {
+            dialog.dismiss()
+            UpdateEngine.checkForUpdates(this, quiet = false)
+        }
 
         view.findViewById<View>(R.id.aboutLicences).setOnClickListener {
             dialog.dismiss()

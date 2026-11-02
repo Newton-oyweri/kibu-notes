@@ -228,4 +228,21 @@
     <string name="current_category">Current Category: %1$s</string>
     <string name="selected_documents_header">Selected Documents (%1$d)</string>
     <string name="select_all_documents">Select All Documents</string>
+
+    <string name="update_available_title">Update Available!</string>
+    <string name="update_available_message">A newer version of Kibu Notes (%1$s) is available. Update to get the latest improvements and fixes.</string>
+    <string name="version_comparison">Installed: %1$s  •  Latest: %2$s</string>
+    <string name="release_notes_header">What\'s New:</string>
+    <string name="download_and_install">Download &amp; Install</string>
+    <string name="later">Later</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="checking_for_updates">Checking for updates…</string>
+    <string name="no_update_available">You are on the latest version (%1$s)</string>
+    <string name="downloading_update">Downloading update… %1$d%%</string>
+    <string name="installing_update">Installing update…</string>
+    <string name="update_download_failed">Failed to download update</string>
+    <string name="update_checksum_failed">Update security verification failed (checksum mismatch)</string>
+    <string name="allow_install_permission_title">Install Permission Required</string>
+    <string name="allow_install_permission_message">To install updates, please allow Kibu Notes to install unknown apps in your phone\'s settings.</string>
+    <string name="open_settings">Open Settings</string>
 </resources>

@@ -185,7 +185,8 @@ androidComponents.onVariants { variant ->
                 .findAll(manifestFile.get().asFile.readText())
                 .map { it.groupValues[1] }
                 .toList()
-            val allowed = allowedSuffixes.map { applicationId.get() + it }.toSet() + "android.permission.INTERNET"
+            val allowed = allowedSuffixes.map { applicationId.get() + it }.toSet() + 
+                setOf("android.permission.INTERNET", "android.permission.REQUEST_INSTALL_PACKAGES")
             val unexpected = requested.filterNot { it in allowed }
             if (unexpected.isNotEmpty()) {
                 throw GradleException(

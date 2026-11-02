@@ -64,24 +64,18 @@ android {
 
     buildTypes {
         release {
-            // The app is 1,700 lines of Kotlin; the dex was 14.8 MB, nearly all of it
-            // library code that nothing here calls. R8 keeps the reachable part and
+            // The app is 1,700 lines of Kotlin; R8 keeps the reachable part and
             // drops the rest, and shrinkResources does the same for the resource table.
-            // Kept in the open, so obfuscation buys no secrecy: what it buys is the
-            // shrinking and optimisation that come with it. See proguard-rules.pro for
-            // why line numbers survive it.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         debug {
-            // So a debug build installs alongside an existing release install rather
-            // than being refused for having a different signing key, which would
-            // otherwise mean uninstalling and losing recents and folder grants.
+            // So a debug build installs alongside an existing release install
             applicationIdSuffix = ".debug"
         }
     }

@@ -16,3 +16,19 @@
 # file for that exact build, a trace from that build cannot be read.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Preserve kotlinx.serialization models & GitHub Update Engine models in R8 release builds
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+-keepclassmembers class * {
+    @kotlinx.serialization.SerialName <fields>;
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keep @kotlinx.serialization.Serializable class * { *; }
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <methods>;
+}
+
+-keep class com.kibu.notes.GitHubRelease { *; }
+-keep class com.kibu.notes.GitHubAsset { *; }
+-keep class com.kibu.notes.UpdateEngine { *; }
+-keep class com.kibu.notes.data.models.** { *; }

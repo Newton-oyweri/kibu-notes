@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import androidx.annotation.Keep
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.kibu.notes.BuildConfig
 import kotlinx.coroutines.CoroutineScope
@@ -32,21 +33,23 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
+@Keep
 @Serializable
 data class GitHubAsset(
-    val name: String = "",
-    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
-    val size: Long = 0L,
-    val digest: String? = null
+    @Keep val name: String = "",
+    @Keep @SerialName("browser_download_url") val browserDownloadUrl: String = "",
+    @Keep val size: Long = 0L,
+    @Keep val digest: String? = null
 )
 
+@Keep
 @Serializable
 data class GitHubRelease(
-    @SerialName("tag_name") val tagName: String = "",
-    val name: String = "",
-    val body: String? = null,
-    @SerialName("published_at") val publishedAt: String? = null,
-    val assets: List<GitHubAsset> = emptyList()
+    @Keep @SerialName("tag_name") val tagName: String = "",
+    @Keep val name: String = "",
+    @Keep val body: String? = null,
+    @Keep @SerialName("published_at") val publishedAt: String? = null,
+    @Keep val assets: List<GitHubAsset> = emptyList()
 )
 
 object UpdateEngine {

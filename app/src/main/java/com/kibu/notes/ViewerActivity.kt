@@ -1424,17 +1424,31 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     private fun resolveDisplayName(uri: Uri): String {
-        if (uri.scheme == "content") {
+        val raw = if (uri.scheme == "content") {
             runCatching {
                 contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                     val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (idx >= 0 && cursor.moveToFirst()) {
-                        cursor.getString(idx)?.let { return it }
-                    }
+                        cursor.getString(idx)?.takeIf { it.isNotEmpty() }
+                    } else null
                 }
+            }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+        } else {
+            uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+        }
+        return cleanFileName(raw)
+    }
+
+    private fun cleanFileName(raw: String): String {
+        if (raw.contains('_')) {
+            val prefix = raw.substringBefore('_')
+            val isResourceId = prefix.length >= 8 || prefix.contains('-') || (prefix.length >= 3 && prefix.all { it.isDigit() })
+            if (isResourceId) {
+                val candidate = raw.substringAfter('_')
+                if (candidate.isNotEmpty()) return candidate
             }
         }
-        return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+        return raw
     }
 
     private fun showImage(container: FrameLayout, uri: Uri, name: String, ext: String) {

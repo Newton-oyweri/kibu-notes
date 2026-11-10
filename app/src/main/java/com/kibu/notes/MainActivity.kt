@@ -431,6 +431,12 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.about_close, null)
             .show()
 
+        val checkUpdateBtn = view.findViewById<MaterialButton>(R.id.aboutCheckUpdateBtn)
+        checkUpdateBtn?.setOnClickListener {
+            dialog.dismiss()
+            UpdateEngine.checkForUpdates(this, quiet = false)
+        }
+
         versionText.setOnClickListener {
             dialog.dismiss()
             UpdateEngine.checkForUpdates(this, quiet = false)

@@ -2385,10 +2385,10 @@ function vwFailure(e) {
      already the right answer. */
   if (/encryption|crypto/i.test(String(e && e.message))) {
     return [
-      "This PDF is protected in a way Gander cannot open",
+      "This PDF is protected in a way Kibu Notes cannot open",
       "It is encrypted, but not with the password scheme its renderer reads, so " +
       "there is nothing you could type here that would open it. Every other " +
-      "format Gander opens still works."
+      "format Kibu Notes opens still works."
     ];
   }
   switch (e && e.name) {
@@ -2396,18 +2396,18 @@ function vwFailure(e) {
       return [
         "This PDF could not be unlocked",
         "The password was not accepted. If the file opens elsewhere, its " +
-        "protection is of a kind Gander cannot read yet."
+        "protection is of a kind Kibu Notes cannot read yet."
       ];
     case "InvalidPDFException":
       return [
         "This file is not a PDF that can be read",
         "It is either damaged or not a PDF at all, whatever it happens to be " +
-        "named. Every other format Gander opens still works."
+        "named. Every other format Kibu Notes opens still works."
       ];
     case "ResponseException":
       return [
         "This PDF could not be read to the end",
-        "Gander lost access to the file part way through loading it. Opening it " +
+        "Kibu Notes lost access to the file part way through loading it. Opening it " +
         "again usually settles this."
       ];
     default:

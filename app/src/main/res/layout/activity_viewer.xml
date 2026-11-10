@@ -15,7 +15,19 @@
         app:menu="@menu/viewer_menu"
         app:navigationContentDescription="@string/back"
         app:navigationIcon="@drawable/ic_back"
-        app:titleTextAppearance="?attr/textAppearanceTitleMedium" />
+        app:titleTextAppearance="?attr/textAppearanceTitleMedium">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recentTabsList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="2dp"
+            android:paddingEnd="4dp"
+            android:scrollbars="none"
+            android:overScrollMode="never" />
+
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <!-- Every control in the bar is at least 48dp each way, the smallest target Android's
          guidelines and Play's accessibility scan accept. The buttons were 44 and the box 45

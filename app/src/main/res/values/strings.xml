@@ -83,7 +83,7 @@
     <string name="password">Password</string>
     <string name="password_open">Open</string>
     <string name="password_wrong">That password did not work.</string>
-    <!-- Choosing how a zip's names are read, when Gander's guess is wrong. Named by language
+    <!-- Choosing how a zip's names are read, when Kibu Notes's guess is wrong. Named by language
          first, since that is what a reader recognises, and by code page after it, which is
          what anyone who knows the term is looking for. -->
     <string name="name_encoding">File name encoding</string>
@@ -147,14 +147,16 @@
     <string name="open_with_hint">Tip: in your file manager, tap any file and choose Open with &gt; Kibu Notes.</string>
     <string name="back">Back</string>
     <string name="about_gander">About Kibu Notes</string>
-    <!-- The two home menu items above About Gander. That one already names the app, so
+    <!-- The two home menu items above About Kibu Notes. That one already names the app, so
          these stay a bare verb each. Rate only appears where Google Play installed it. -->
     <string name="rate_app">Rate</string>
     <string name="share_app">Share</string>
-    <!-- What Share hands over. The link is the site rather than the Play listing, so it
-         works for whoever receives it, however they install. -->
-    <string name="share_app_text">Kibu Notes, an offline file viewer for Android: %1$s</string>
+    <!-- What Share hands over. -->
+    <string name="share_app_text">kibu Notes Student shared resources\n\n%1$s</string>
     <string name="about_version">Version %1$s</string>
+    <string name="about_intro">Kibu Notes is a student-driven platform, made by students, for students at Kibabii University.\n\nOur goal is to make academic resources easily accessible while encouraging students to support one another. Whether you have lecture notes, past papers, revision materials or other useful learning resources, you can contribute too.\n\nHave something useful? Share it. Looking for something? Find it.\n\nTogether, we can build a community where knowledge is shared and every student has access to the resources they need.\n\nKibu Notes – Learn. Share. Grow.</string>
+    <string name="about_supported_types_title">Supported Document &amp; File Types</string>
+    <string name="about_supported_types_detail">• PDFs &amp; Documents (PDF, DOCX, DOC, ODT, RTF)\n• Spreadsheets (XLSX, XLS, CSV, ODS)\n• Presentations (PPTX, PPT, PPSX)\n• Images &amp; Media (PNG, JPG, WEBP, MP4, MP3, etc.)\n• Text &amp; Code (.txt, .md, code files)\n• Archives (.zip) &amp; 3D Models (.stl)</string>
     <string name="about_permissions_label">Permissions this app requests</string>
     <string name="about_permissions_none">None</string>
     <!-- Sits under the permission line, which Gander reads back from Android at

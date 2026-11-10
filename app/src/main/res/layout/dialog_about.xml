@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Scrolls because the permission line only reads "None" while the promise
-     holds: if it ever names permissions instead, this has to stay readable. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -11,30 +9,36 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingTop="4dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp">
 
+        <!-- Introduction -->
+        <TextView
+            style="@style/Widget.Gander.About.Body"
+            android:text="@string/about_intro"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:lineSpacingMultiplier="1.25" />
+
+        <View
+            style="@style/Widget.Gander.About.Divider"
+            android:layout_marginTop="16dp" />
+
+        <!-- Version -->
         <TextView
             android:id="@+id/aboutVersion"
             style="@style/Widget.Gander.About.Body"
+            android:layout_marginTop="12dp"
             android:textAppearance="?attr/textAppearanceBodySmall"
             android:textColor="?attr/colorOnSurfaceVariant"
             tools:text="Version 1.10" />
 
-        <TextView
-            style="@style/Widget.Gander.About.Body"
-            android:layout_marginTop="10dp"
-            android:text="@string/main_subtitle" />
-
-        <!-- The proof rather than the claim: what the installed package actually
-             asks Android for, read at runtime so it cannot drift from the truth. -->
+        <!-- Supported Document & File Types -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/aboutPermissionsCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
             android:layout_marginEnd="24dp"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             app:cardBackgroundColor="?attr/colorSurfaceVariant"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp">
@@ -48,85 +52,26 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/about_permissions_label"
+                    android:text="@string/about_supported_types_title"
                     android:textAppearance="?attr/textAppearanceLabelMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
-
-                <TextView
-                    android:id="@+id/aboutPermissions"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
-                    tools:text="None" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="@string/about_permissions_detail"
+                    android:text="@string/about_supported_types_detail"
                     android:textAppearance="?attr/textAppearanceBodySmall"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:lineSpacingMultiplier="1.2" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
             style="@style/Widget.Gander.About.Body"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             android:text="@string/open_with_hint"
             android:textAppearance="?attr/textAppearanceBodySmall"
             android:textColor="?attr/colorOnSurfaceVariant" />
 
-        <View
-            style="@style/Widget.Gander.About.Divider"
-            android:layout_marginTop="16dp" />
-
-        <LinearLayout
-            android:id="@+id/aboutAuthor"
-            style="@style/Widget.Gander.About.Row">
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Title"
-                android:text="@string/about_made_by" />
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Subtitle"
-                android:text="@string/about_made_by_url" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/aboutSource"
-            style="@style/Widget.Gander.About.Row">
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Title"
-                android:text="@string/about_source" />
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Subtitle"
-                android:text="@string/about_source_url" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/aboutLicences"
-            style="@style/Widget.Gander.About.Row">
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Title"
-                android:text="@string/about_licences" />
-
-            <TextView
-                style="@style/Widget.Gander.About.Row.Subtitle"
-                android:text="@string/about_licences_detail" />
-        </LinearLayout>
-
-        <View style="@style/Widget.Gander.About.Divider" />
-
-        <TextView
-            style="@style/Widget.Gander.About.Body"
-            android:layout_marginTop="14dp"
-            android:text="@string/about_copyright"
-            android:textAppearance="?attr/textAppearanceBodySmall"
-            android:textColor="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 </ScrollView>

@@ -509,7 +509,7 @@ internal object ZipReader {
      * have been written as bytes; none of them opening it is [WrongPassword].
      */
     fun open(source: ZipSource, at: EntryLocation, password: String? = null): InputStream {
-        if (at.lock == Lock.UNSUPPORTED) throw ZipException("encrypted in a way Gander does not read")
+        if (at.lock == Lock.UNSUPPORTED) throw ZipException("encrypted in a way Kibu Notes does not read")
         if (at.method !in READABLE_METHODS) throw ZipException("method ${at.method} is not supported")
         val local = local(source, at)
         return when {

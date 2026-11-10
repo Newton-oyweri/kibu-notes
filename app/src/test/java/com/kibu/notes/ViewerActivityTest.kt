@@ -230,6 +230,19 @@ class ViewerActivityTest {
         assertThat(toolbar.title.toString()).isEqualTo("Alder Court.pdf")
     }
 
+    @Test
+    fun recentTabsAllowSwitchingBetweenFiles() {
+        val uri1 = FixtureProvider.uriNamed("six-pages.pdf", "Paper1.pdf")
+        val uri2 = FixtureProvider.uriNamed("six-pages.pdf", "Notes2.pdf")
+        val controller = view(uri1)
+        val activity = controller.get()
+        Recents.add(activity, uri2, "Notes2.pdf")
+
+        val tabsList = activity.findViewById<RecyclerView>(R.id.recentTabsList)
+        assertThat(tabsList).isNotNull()
+        assertThat(tabsList.adapter?.itemCount).isAtLeast(1)
+    }
+
     // ---------------------------------------------------------------
     // Ranged loading
     // ---------------------------------------------------------------

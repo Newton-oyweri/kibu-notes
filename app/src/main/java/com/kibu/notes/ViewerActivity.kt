@@ -4,10 +4,12 @@ import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -16,6 +18,7 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.InputType
+import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
@@ -45,6 +48,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.core.view.ViewCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.color.MaterialColors
 import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -121,6 +128,8 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     private var webView: ScrollProbeWebView? = null
+    private lateinit var recentTabAdapter: RecentTabAdapter
+    private var currentUri: Uri? = null
 
     /**
      * Whether the page on show searches its own text over the channel, see [searchesInPage],
@@ -281,8 +290,18 @@ class ViewerActivity : AppCompatActivity() {
             ?.getInt(STATE_FULL_SCREEN)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = ""
         toolbar.setNavigationOnClickListener { finish() }
-        val container = findViewById<FrameLayout>(R.id.container)
+
+        val tabsList = findViewById<RecyclerView>(R.id.recentTabsList)
+        tabsList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        recentTabAdapter = RecentTabAdapter { entry ->
+            val newUri = Uri.parse(entry.uri)
+            if (newUri != currentUri) {
+                openFileInternal(newUri, entry.name, savedInstanceState)
+            }
+        }
+        tabsList.adapter = recentTabAdapter
 
         // Files arrive via VIEW (data), the share sheet (EXTRA_STREAM), a plain path extra
         // from Gander itself, or as shared text (EXTRA_TEXT). Who sent them decides which
@@ -304,9 +323,6 @@ class ViewerActivity : AppCompatActivity() {
         }
 
         val name = resolveDisplayName(uri)
-        toolbar.title = name
-        val ext = name.substringAfterLast('.', "").lowercase()
-        val mime = runCatching { contentResolver.getType(uri) }.getOrNull() ?: intent.type
 
         // Picker selections carry a persistable grant; keep those in Recents.
         // Open-with and folder-browsed URIs throw here and are simply skipped. A file
@@ -325,19 +341,146 @@ class ViewerActivity : AppCompatActivity() {
             Recents.add(this, uri, name)
         }
 
-        // Held past the when because setUpSearch needs it to know whether the
-        // format it is offering to search actually has anything findable in it
+        openFileInternal(uri, name, savedInstanceState)
+    }
+
+    private fun openFileInternal(uri: Uri, name: String, state: Bundle? = null) {
+        currentUri = uri
+
+        // Clean up previous view & player if switching
+        player?.release()
+        player = null
+        videoChrome?.land()
+        videoChrome = null
+        webView = null
+        archiveBrowser = null
+
+        val container = findViewById<FrameLayout>(R.id.container)
+        container.removeAllViews()
+
+        val searchBar = findViewById<LinearLayout>(R.id.searchBar)
+        if (searchBar.visibility == View.VISIBLE) {
+            val input = findViewById<EditText>(R.id.searchInput)
+            val count = findViewById<TextView>(R.id.searchCount)
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(input.windowToken, 0)
+            searchBar.visibility = View.GONE
+            searchBackCallback.isEnabled = false
+            input.setText("")
+            count.text = ""
+            webView?.clearMatches()
+        }
+
+        pageIndicator.visibility = View.GONE
+        fastScrollTrack.visibility = View.INVISIBLE
+        fastScrollThumb.visibility = View.INVISIBLE
+
+        val ext = name.substringAfterLast('.', "").lowercase()
+        val mime = runCatching { contentResolver.getType(uri) }.getOrNull() ?: intent.type
+
+        val fromGander = componentName.className == INTERNAL_VIEWER
+        if (fromGander && !ArchiveProvider.isEntry(this, uri)) {
+            Recents.add(this, uri, name)
+        }
+
         val kind = detect(ext, mime)
         when (kind) {
             FileKind.IMAGE -> showImage(container, uri, name, ext)
             FileKind.PLAYER -> showPlayer(container, uri, name, ext)
-            FileKind.ARCHIVE -> showArchive(container, uri, name, savedInstanceState)
+            FileKind.ARCHIVE -> showArchive(container, uri, name, state)
             else -> showWeb(container, uri, kind, name, ext)
         }
+
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = name
         setUpSearch(toolbar, kind)
         setUpActions(toolbar, kind, uri, name, ext, mime)
-        // A PDF that opens turned over opens with the parts around it dark as well
+
         if (loadedNight) nightChrome.show(true)
+
+        updateRecentTabs(uri, name)
+    }
+
+    private fun updateRecentTabs(currentUri: Uri, currentName: String) {
+        val allRecents = Recents.all(this).toMutableList()
+        val uriStr = currentUri.toString()
+        if (allRecents.none { it.uri == uriStr }) {
+            allRecents.add(0, Recents.Entry(uriStr, currentName, System.currentTimeMillis()))
+        }
+        recentTabAdapter.submitList(allRecents, uriStr)
+
+        val activeIndex = allRecents.indexOfFirst { it.uri == uriStr }
+        if (activeIndex >= 0) {
+            val tabsList = findViewById<RecyclerView>(R.id.recentTabsList)
+            tabsList.post {
+                tabsList.smoothScrollToPosition(activeIndex)
+            }
+        }
+    }
+
+    private class RecentTabAdapter(
+        private val onTabSelected: (Recents.Entry) -> Unit
+    ) : RecyclerView.Adapter<RecentTabAdapter.ViewHolder>() {
+
+        private var items = listOf<Recents.Entry>()
+        private var activeUri: String? = null
+
+        @SuppressLint("NotifyDataSetChanged")
+        fun submitList(newItems: List<Recents.Entry>, currentActiveUri: String) {
+            items = newItems
+            activeUri = currentActiveUri
+            notifyDataSetChanged()
+        }
+
+        override fun getItemCount() = items.size
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_recent_tab, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = items[position]
+            val isActive = item.uri == activeUri
+            val card = holder.itemView as MaterialCardView
+            val badge = holder.itemView.findViewById<TextView>(R.id.tabBadge)
+            val title = holder.itemView.findViewById<TextView>(R.id.tabTitle)
+
+            title.text = item.name
+
+            val (badgeText, badgeColor) = badgeFor(item.name, null)
+            badge.text = badgeText
+            badge.background?.mutate()?.setTint(badgeColor)
+
+            if (isActive) {
+                val bgColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorPrimaryContainer)
+                val textColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorOnPrimaryContainer)
+                card.setCardBackgroundColor(ColorStateList.valueOf(bgColor))
+                title.setTextColor(textColor)
+                title.setTypeface(null, Typeface.BOLD)
+                card.strokeWidth = 0
+            } else {
+                val bgColor = MaterialColors.getColor(
+                    card,
+                    com.google.android.material.R.attr.colorSurfaceContainerHigh,
+                    MaterialColors.getColor(card, com.google.android.material.R.attr.colorSurfaceVariant)
+                )
+                val textColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                card.setCardBackgroundColor(ColorStateList.valueOf(bgColor))
+                title.setTextColor(textColor)
+                title.setTypeface(null, Typeface.NORMAL)
+                card.strokeWidth = 0
+            }
+
+            holder.itemView.setOnClickListener {
+                if (!isActive) {
+                    onTabSelected(item)
+                }
+            }
+        }
+
+        class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
     }
 
     /** Night mode, share and "show in file manager" toolbar actions. */

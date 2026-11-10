@@ -1,14 +1,14 @@
 # Open source licences
 
-Gander is free software. It also renders your documents with open source
+Kibu Notes is free software. It also renders your documents with open source
 JavaScript libraries that are bundled into the app rather than fetched, because
-Gander has no network access at all. Their licences ask that the notices travel
+Kibu Notes has no network access at all. Their licences ask that the notices travel
 with the software, so they are reproduced in full below and this page ships
 inside the APK.
 
-You are reading this in Gander's own Markdown viewer.
+You are reading this in Kibu Notes's own Markdown viewer.
 
-## Gander
+## Kibu Notes
 
 Copyright (c) 2026 Arjun Maniyani
 
@@ -44,18 +44,18 @@ The minified files are unmodified upstream distribution artifacts.
 
 ## Dual-licensed components
 
-Three of the libraries above are offered under a choice of licences. Gander
+Three of the libraries above are offered under a choice of licences. Kibu Notes
 takes the permissive option in each case, and this is the record of that
 election:
 
 - **JSZip 3.10.1** and **JSZip 2.x** are offered under the MIT licence or
-  GPL-3.0. Gander elects **MIT**.
+  GPL-3.0. Kibu Notes elects **MIT**.
 - **DOMPurify 3.4.12** is offered under the Apache License 2.0 or the Mozilla
-  Public License 2.0. Gander elects **Apache-2.0**.
+  Public License 2.0. Kibu Notes elects **Apache-2.0**.
 
 ## The MIT Licence
 
-Applies to Gander itself and to the following bundled libraries:
+Applies to Kibu Notes itself and to the following bundled libraries:
 
 - marked, Copyright (c) 2011-2025 Christopher Jeffrey
 - JSZip 3.10.1, Copyright (c) 2009-2016 Stuart Knightley

@@ -220,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 R.id.action_rate -> { openPlayListing(); true }
-                R.id.action_share_app -> { shareGander(); true }
+                R.id.action_share_app -> { shareKibuNotes(); true }
                 R.id.action_select_course -> {
                     showCourseSelectorIfNeeded()
                     true
@@ -415,9 +415,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The app's only About surface. Carries the version, who made it, and the
-     * permission list read back out of Android, plus the way in to the licence
-     * text the bundled libraries require to travel with the binary.
+     * The app's only About surface. Carries the app version.
      */
     private fun showAbout() {
         val view = layoutInflater.inflate(R.layout.dialog_about, null)
@@ -426,31 +424,6 @@ class MainActivity : AppCompatActivity() {
             .getOrNull().orEmpty()
         val versionText = view.findViewById<TextView>(R.id.aboutVersion)
         versionText.text = getString(R.string.about_version, version)
-
-        val permissions = requestedPermissions()
-        val field = view.findViewById<TextView>(R.id.aboutPermissions)
-        when {
-            // Only when the package manager refused to answer. Printing "none"
-            // for a question we could not ask would be the one dishonest thing
-            // this dialog could do, so it says nothing at all instead.
-            permissions == null ->
-                view.findViewById<View>(R.id.aboutPermissionsCard).visibility = View.GONE
-            permissions.isEmpty() -> field.setText(R.string.about_permissions_none)
-            // Never expected: assembleRelease fails before a build can get here.
-            // Shown rather than swallowed, because a broken promise is the thing
-            // a reader of this dialog most needs to know.
-            else -> {
-                field.text = permissions.joinToString("\n")
-                field.setTextColor(
-                    MaterialColors.getColor(field, com.google.android.material.R.attr.colorError)
-                )
-            }
-        }
-
-        view.findViewById<View>(R.id.aboutAuthor)
-            .setOnClickListener { openUrl(getString(R.string.url_author)) }
-        view.findViewById<View>(R.id.aboutSource)
-            .setOnClickListener { openUrl(getString(R.string.url_source)) }
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.about_gander)
@@ -462,30 +435,7 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
             UpdateEngine.checkForUpdates(this, quiet = false)
         }
-
-        view.findViewById<View>(R.id.aboutLicences).setOnClickListener {
-            dialog.dismiss()
-            openLicences()
-        }
     }
-
-    /**
-     * What Android says this install asks for, or null if it would not say.
-     *
-     * androidx.core declares DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION under our
-     * own package name so libraries can registerReceiver safely. It is signature
-     * level, self-granted and never shown to a user, which is why the permission
-     * check in build.gradle.kts allowlists it as well. Anything else carrying our
-     * package prefix is ours on the same reasoning, so drop those and report what
-     * is left, which is the list Android would actually confront someone with.
-     */
-    private fun requestedPermissions(): List<String>? = runCatching {
-        packageManager
-            .getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
-            .requestedPermissions
-            .orEmpty()
-            .filterNot { it.startsWith("$packageName.") }
-    }.getOrNull()
 
     /**
      * Gander shows its own licences. The asset is copied into the cache and
@@ -552,11 +502,12 @@ class MainActivity : AppCompatActivity() {
      * Gander leaves itself out of the sheet: it accepts shared text, and opening its own
      * link as a document helps nobody.
      */
-    private fun shareGander() {
+    private fun shareKibuNotes() {
+        val githubDirectLink = "https://github.com/Newton-oyweri/kibu-notes/releases/latest"
         val send = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
-            .putExtra(Intent.EXTRA_SUBJECT, getString(R.string.app_name))
-            .putExtra(Intent.EXTRA_TEXT, getString(R.string.share_app_text, getString(R.string.url_site)))
+            .putExtra(Intent.EXTRA_SUBJECT, "kibu Notes Student shared resources")
+            .putExtra(Intent.EXTRA_TEXT, getString(R.string.share_app_text, githubDirectLink))
         val chooser = Intent.createChooser(send, getString(R.string.share_app))
             .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, ViewerActivity::class.java)))
         runCatching { startActivity(chooser) }

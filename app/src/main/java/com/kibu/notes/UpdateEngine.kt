@@ -14,12 +14,13 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.Keep
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.annotation.Keep
+import com.google.android.material.R as MaterialR
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.kibu.notes.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -56,28 +58,34 @@ object UpdateEngine {
 
     private const val GITHUB_LATEST_RELEASE_URL =
         "https://api.github.com/repos/Newton-oyweri/kibu-notes/releases/latest"
+    private const val PREFS_NAME = "update_engine_prefs"
+    private const val KEY_LAST_CHECK_TIME = "last_check_time_ms"
+    private const val THROTTLE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parseVersionNumber(versionStr: String): Double {
+    fun parseVersionParts(versionStr: String): List<Int> {
         val clean = versionStr.trim().removePrefix("V").removePrefix("v")
-        val parts = clean.split(".")
-        if (parts.size >= 2) {
-            val major = parts[0].filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
-            val minor = parts[1].filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
-            return major + (minor / 10.0)
-        }
-        return clean.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
+        return clean.split(".")
+            .map { part -> part.filter { it.isDigit() }.toIntOrNull() ?: 0 }
     }
 
-    fun parseVersionCode(tagName: String): Int {
-        val clean = tagName.trim().removePrefix("V").removePrefix("v")
-        val digitsOnly = clean.filter { it.isDigit() }
-        return digitsOnly.toIntOrNull() ?: 0
+    fun isVersionNewer(installedStr: String, latestStr: String): Boolean {
+        val installedParts = parseVersionParts(installedStr)
+        val latestParts = parseVersionParts(latestStr)
+        val maxLen = maxOf(installedParts.size, latestParts.size)
+        for (i in 0 until maxLen) {
+            val inst = installedParts.getOrElse(i) { 0 }
+            val lat = latestParts.getOrElse(i) { 0 }
+            if (lat > inst) return true
+            if (lat < inst) return false
+        }
+        return false
     }
 
     suspend fun fetchLatestRelease(): GitHubRelease? = withContext(Dispatchers.IO) {
-        runCatching {
+        // Attempt 1: GitHub REST API
+        try {
             val url = URL(GITHUB_LATEST_RELEASE_URL)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
@@ -88,15 +96,84 @@ object UpdateEngine {
 
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val bodyText = conn.inputStream.use { it.bufferedReader().readText() }
-                json.decodeFromString<GitHubRelease>(bodyText)
+                return@withContext json.decodeFromString<GitHubRelease>(bodyText)
             } else {
-                null
+                val errText = conn.errorStream?.use { it.bufferedReader().readText() } ?: ""
+                Log.e("UpdateEngine", "API fetch failed HTTP ${conn.responseCode}: $errText")
             }
-        }.getOrNull()
+        } catch (e: Exception) {
+            Log.e("UpdateEngine", "API fetch exception: ${e.message}", e)
+        }
+
+        // Attempt 2: Fallback non-API HEAD redirect & HTML asset scraping
+        try {
+            Log.d("UpdateEngine", "Attempting fallback release check via GitHub HTML redirect...")
+            val headUrl = URL("https://github.com/Newton-oyweri/kibu-notes/releases/latest")
+            val headConn = (headUrl.openConnection() as HttpURLConnection).apply {
+                requestMethod = "HEAD"
+                setRequestProperty("User-Agent", "KibuNotes-AndroidApp")
+                instanceFollowRedirects = false
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+
+            val location = headConn.getHeaderField("Location").orEmpty()
+            val tag = location.substringAfterLast("/tag/").takeIf { it.isNotEmpty() && it != location }
+
+            if (tag.isNullOrEmpty()) {
+                Log.e("UpdateEngine", "Fallback failed: Location header '$location' does not contain a tag")
+                return@withContext null
+            }
+
+            val expandedUrl = "https://github.com/Newton-oyweri/kibu-notes/releases/expanded_assets/$tag"
+            val expandedConn = (URL(expandedUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "KibuNotes-AndroidApp")
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+
+            if (expandedConn.responseCode != HttpURLConnection.HTTP_OK) {
+                val errText = expandedConn.errorStream?.use { it.bufferedReader().readText() } ?: ""
+                Log.e("UpdateEngine", "Fallback assets fetch failed HTTP ${expandedConn.responseCode}: $errText")
+                return@withContext null
+            }
+
+            val htmlBody = expandedConn.inputStream.use { it.bufferedReader().readText() }
+            val apkHrefMatch = Regex("""href="([^"]+\.apk)"""", RegexOption.IGNORE_CASE).find(htmlBody)
+            val rawHref = apkHrefMatch?.groupValues?.get(1)
+
+            if (rawHref.isNullOrEmpty()) {
+                Log.e("UpdateEngine", "Fallback failed: No .apk href found in expanded assets HTML for tag $tag")
+                return@withContext null
+            }
+
+            val absoluteUrl = if (rawHref.startsWith("/")) "https://github.com$rawHref" else rawHref
+            val filename = absoluteUrl.substringAfterLast('/')
+
+            Log.d("UpdateEngine", "Fallback release check succeeded: tag=$tag, apkUrl=$absoluteUrl")
+            return@withContext GitHubRelease(
+                tagName = tag,
+                name = tag,
+                assets = listOf(GitHubAsset(name = filename, browserDownloadUrl = absoluteUrl, digest = null))
+            )
+        } catch (e: Exception) {
+            Log.e("UpdateEngine", "Fallback release fetch exception: ${e.message}", e)
+            return@withContext null
+        }
     }
 
     fun checkForUpdates(context: Context, quiet: Boolean = true) {
         if (context is Activity && (context.isFinishing || context.isDestroyed)) return
+
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastCheck = prefs.getLong(KEY_LAST_CHECK_TIME, 0L)
+        val now = System.currentTimeMillis()
+
+        if (quiet && (now - lastCheck < THROTTLE_INTERVAL_MS)) {
+            Log.d("UpdateEngine", "Skipping automatic update check: throttled (last check was < 6h ago)")
+            return
+        }
 
         CoroutineScope(Dispatchers.Main).launch {
             if (!quiet) {
@@ -105,36 +182,42 @@ object UpdateEngine {
 
             val release = fetchLatestRelease()
             if (release == null) {
+                Log.e("UpdateEngine", "Update check failed: release is null")
                 if (!quiet) {
                     Toast.makeText(context, context.getString(R.string.update_download_failed), Toast.LENGTH_SHORT).show()
                 }
                 return@launch
             }
 
+            // Save last successful check timestamp
+            prefs.edit { putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis()) }
+
             val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
                 ?: release.assets.firstOrNull { it.browserDownloadUrl.endsWith(".apk", ignoreCase = true) }
 
             if (apkAsset == null) {
+                Log.e("UpdateEngine", "Update check failed: no APK asset found in release ${release.tagName}")
                 if (!quiet) {
                     Toast.makeText(context, context.getString(R.string.no_update_available, BuildConfig.VERSION_NAME), Toast.LENGTH_SHORT).show()
                 }
                 return@launch
             }
 
-            val latestNum = parseVersionNumber(release.tagName)
-            val installedNum = parseVersionNumber(BuildConfig.VERSION_NAME)
+            val isNewer = isVersionNewer(BuildConfig.VERSION_NAME, release.tagName)
 
-            val isNewer = latestNum > installedNum
-
-            val displayInstalled = "V" + installedNum.toInt()
+            val displayInstalled = if (BuildConfig.VERSION_NAME.startsWith("V", ignoreCase = true)) {
+                BuildConfig.VERSION_NAME.uppercase()
+            } else {
+                "V" + BuildConfig.VERSION_NAME
+            }
             val displayLatest = if (release.tagName.startsWith("V", ignoreCase = true)) {
                 release.tagName.uppercase()
             } else {
                 "V" + release.tagName
             }
 
-            Log.d("UpdateEngine", "1. Raw tag_name received from GitHub: '${release.tagName}', parsed: $latestNum")
-            Log.d("UpdateEngine", "2. Installed versionName: '${BuildConfig.VERSION_NAME}', parsed: $installedNum")
+            Log.d("UpdateEngine", "1. Tag name received from GitHub: '${release.tagName}'")
+            Log.d("UpdateEngine", "2. Installed versionName: '${BuildConfig.VERSION_NAME}'")
             Log.d("UpdateEngine", "3. Is newer version available? -> $isNewer")
 
             if (isNewer) {
@@ -165,7 +248,7 @@ object UpdateEngine {
 
         val versionText = TextView(context).apply {
             text = context.getString(R.string.version_comparison, currentVersionStr, latestVersionStr)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            setTextAppearance(MaterialR.style.TextAppearance_Material3_BodyMedium)
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 0, 0, 16)
         }
@@ -175,7 +258,7 @@ object UpdateEngine {
         if (releaseNotes.isNotEmpty()) {
             val notesHeader = TextView(context).apply {
                 text = context.getString(R.string.release_notes_header)
-                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
+                setTextAppearance(MaterialR.style.TextAppearance_Material3_LabelLarge)
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, 8)
             }
@@ -189,7 +272,7 @@ object UpdateEngine {
             }
             val notesTextView = TextView(context).apply {
                 text = releaseNotes
-                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextAppearance(MaterialR.style.TextAppearance_Material3_BodySmall)
             }
             notesScrollView.addView(notesTextView)
             layout.addView(notesScrollView)
@@ -206,7 +289,7 @@ object UpdateEngine {
         }
         val progressText = TextView(context).apply {
             text = context.getString(R.string.downloading_update, 0)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+            setTextAppearance(MaterialR.style.TextAppearance_Material3_BodySmall)
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, 8, 0, 0)
         }
@@ -223,6 +306,7 @@ object UpdateEngine {
             .setNegativeButton(R.string.later) { d, _ -> d.dismiss() }
             .setPositiveButton(R.string.download_and_install, null)
 
+        Log.d("UpdateEngine", "showUpdateDialog showing dialog for latest version: $latestVersionStr")
         dialog = dialogBuilder.create()
         dialog.show()
 
@@ -267,7 +351,7 @@ object UpdateEngine {
         expectedChecksum: String? = null,
         onProgress: (Int) -> Unit
     ): File? = withContext(Dispatchers.IO) {
-        runCatching {
+        try {
             val updatesDir = File(context.cacheDir, "updates").apply { if (!exists()) mkdirs() }
             val apkFile = File(updatesDir, "KibuNotes.apk")
             if (apkFile.exists()) apkFile.delete()
@@ -346,9 +430,10 @@ object UpdateEngine {
             }
 
             apkFile
-        }.onFailure { e ->
+        } catch (e: Exception) {
             Log.e("UpdateEngine", "downloadApk failed: ${e.message}", e)
-        }.getOrNull()
+            null
+        }
     }
 
     fun installApk(context: Context, apkFile: File) {
@@ -357,7 +442,7 @@ object UpdateEngine {
             return
         }
 
-        runCatching {
+        try {
             val authority = "${context.packageName}.fileprovider"
             val apkUri = FileProvider.getUriForFile(context, authority, apkFile)
 
@@ -367,7 +452,8 @@ object UpdateEngine {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        }.onFailure { e ->
+        } catch (e: Exception) {
+            Log.e("UpdateEngine", "installApk failed: ${e.message}", e)
             Toast.makeText(context, "Failed to start installation: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }

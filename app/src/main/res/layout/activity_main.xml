@@ -26,15 +26,30 @@
                 android:layout_height="?attr/actionBarSize"
                 app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
 
-            <ImageButton
-                android:id="@+id/themeToggleBtn"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+            <LinearLayout
+                android:id="@+id/topBarStartContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/toggle_theme"
-                android:src="@drawable/ic_theme_dark" />
+                android:layout_marginStart="4dp"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/themeToggleBtn"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/toggle_theme"
+                    android:src="@drawable/ic_theme_dark" />
+
+                <ImageButton
+                    android:id="@+id/checkUpdateBtn"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/check_for_updates"
+                    android:src="@drawable/ic_download" />
+            </LinearLayout>
 
             <!-- Shown only at the root; render() hides it inside a folder, where the
                  toolbar's own title carries the folder name beside the back arrow. -->

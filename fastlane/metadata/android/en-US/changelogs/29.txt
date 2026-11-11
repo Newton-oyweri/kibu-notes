@@ -1,0 +1,1 @@
+Kibu Notes V9 release with update check rate-limit fallback, top bar update button, and horizontal swipe document navigation.

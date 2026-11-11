@@ -10,27 +10,20 @@ class UpdateEngineTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun parseVersionNumberTests() {
-        assertThat(UpdateEngine.parseVersionNumber("V1")).isEqualTo(1.0)
-        assertThat(UpdateEngine.parseVersionNumber("V2")).isEqualTo(2.0)
-        assertThat(UpdateEngine.parseVersionNumber("V5")).isEqualTo(5.0)
-        assertThat(UpdateEngine.parseVersionNumber("5.0")).isEqualTo(5.0)
-        assertThat(UpdateEngine.parseVersionNumber("V5.1")).isEqualTo(5.1)
-        assertThat(UpdateEngine.parseVersionNumber("V6")).isEqualTo(6.0)
-
-        assertThat(UpdateEngine.parseVersionNumber("V5") > UpdateEngine.parseVersionNumber("5.0")).isFalse()
-        assertThat(UpdateEngine.parseVersionNumber("V6") > UpdateEngine.parseVersionNumber("5.0")).isTrue()
-        assertThat(UpdateEngine.parseVersionNumber("V5") > UpdateEngine.parseVersionNumber("2.0")).isTrue()
+    fun parseVersionPartsTests() {
+        assertThat(UpdateEngine.parseVersionParts("V1")).isEqualTo(listOf(1))
+        assertThat(UpdateEngine.parseVersionParts("V2")).isEqualTo(listOf(2))
+        assertThat(UpdateEngine.parseVersionParts("V5.1")).isEqualTo(listOf(5, 1))
+        assertThat(UpdateEngine.parseVersionParts("7.10")).isEqualTo(listOf(7, 10))
     }
 
     @Test
-    fun parseVersionCodeTests() {
-        assertThat(UpdateEngine.parseVersionCode("V1")).isEqualTo(1)
-        assertThat(UpdateEngine.parseVersionCode("V21")).isEqualTo(21)
-        assertThat(UpdateEngine.parseVersionCode("v30")).isEqualTo(30)
-        assertThat(UpdateEngine.parseVersionCode("V2.1.0")).isEqualTo(210)
-        assertThat(UpdateEngine.parseVersionCode("release-v5")).isEqualTo(5)
-        assertThat(UpdateEngine.parseVersionCode("invalid")).isEqualTo(0)
+    fun isVersionNewerTests() {
+        assertThat(UpdateEngine.isVersionNewer("7.0", "V8")).isTrue()
+        assertThat(UpdateEngine.isVersionNewer("7.9", "V7.10")).isTrue()
+        assertThat(UpdateEngine.isVersionNewer("7.0", "V7.0")).isFalse()
+        assertThat(UpdateEngine.isVersionNewer("8.0", "V7.0")).isFalse()
+        assertThat(UpdateEngine.isVersionNewer("7.0.1", "V7.0.2")).isTrue()
     }
 
     @Test

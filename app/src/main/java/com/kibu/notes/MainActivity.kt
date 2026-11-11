@@ -105,7 +105,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedProgramCard: View
     private lateinit var selectedProgramText: TextView
     private lateinit var selectedPeriodText: TextView
+    private lateinit var topBarStartContainer: View
     private lateinit var themeToggleBtn: ImageButton
+    private lateinit var checkUpdateBtn: ImageButton
 
     @VisibleForTesting
     internal var supabaseRepository: SupabaseRepository = SupabaseRepository()
@@ -196,7 +198,9 @@ class MainActivity : AppCompatActivity() {
 
         toolbar = findViewById(R.id.toolbar)
         lockup = findViewById(R.id.lockup)
+        topBarStartContainer = findViewById(R.id.topBarStartContainer)
         themeToggleBtn = findViewById(R.id.themeToggleBtn)
+        checkUpdateBtn = findViewById(R.id.checkUpdateBtn)
         updateThemeToggleIcon()
         themeToggleBtn.setOnClickListener {
             val isDark = Settings.isAppDarkTheme(this)
@@ -204,6 +208,9 @@ class MainActivity : AppCompatActivity() {
             Settings.setAppDarkTheme(this, newDark)
             Settings.applyAppTheme(this)
             updateThemeToggleIcon()
+        }
+        checkUpdateBtn.setOnClickListener {
+            UpdateEngine.checkForUpdates(this, quiet = false)
         }
         toolbar.setNavigationOnClickListener { backCallback.handleOnBackPressed() }
         // render() rewrites the title and navigation icon on every resume and on
@@ -425,22 +432,11 @@ class MainActivity : AppCompatActivity() {
         val versionText = view.findViewById<TextView>(R.id.aboutVersion)
         versionText.text = getString(R.string.about_version, version)
 
-        val dialog = MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.about_gander)
             .setView(view)
             .setPositiveButton(R.string.about_close, null)
             .show()
-
-        val checkUpdateBtn = view.findViewById<MaterialButton>(R.id.aboutCheckUpdateBtn)
-        checkUpdateBtn?.setOnClickListener {
-            dialog.dismiss()
-            UpdateEngine.checkForUpdates(this, quiet = false)
-        }
-
-        versionText.setOnClickListener {
-            dialog.dismiss()
-            UpdateEngine.checkForUpdates(this, quiet = false)
-        }
     }
 
     /**
@@ -571,7 +567,7 @@ class MainActivity : AppCompatActivity() {
 
         toolbar.title = here?.label.orEmpty()
         lockup.visibility = if (here == null) View.VISIBLE else View.GONE
-        themeToggleBtn.visibility = if (here == null) View.VISIBLE else View.GONE
+        topBarStartContainer.visibility = if (here == null) View.VISIBLE else View.GONE
         toolbar.navigationIcon =
             if (here == null) null
             else AppCompatResources.getDrawable(this, R.drawable.ic_back)
@@ -1062,6 +1058,7 @@ class MainActivity : AppCompatActivity() {
             }
             container.requestLayout()
             myUnitsView.requestLayout()
+            UpdateEngine.checkForUpdates(this@MainActivity, quiet = true)
         }
     }
 

@@ -18,9 +18,11 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.InputType
+import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.MotionEvent
+import kotlin.math.abs
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewConfiguration
@@ -263,6 +265,78 @@ class ViewerActivity : AppCompatActivity() {
         worker.shutdown()
     }
 
+    private lateinit var swipeGestureDetector: GestureDetector
+
+    private fun setupSwipeNavigation() {
+        swipeGestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            private val SWIPE_THRESHOLD = 120
+            private val SWIPE_VELOCITY_THRESHOLD = 200
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                val diffX = e2.x - e1.x
+                val diffY = e2.y - e1.y
+
+                val container = findViewById<FrameLayout>(R.id.container)
+                val subScaleView = container?.getChildAt(0) as? SubsamplingScaleImageView
+                if (subScaleView != null && subScaleView.scale > (subScaleView.minScale * 1.05f)) {
+                    return false
+                }
+
+                if (abs(diffX) > abs(diffY) &&
+                    abs(diffX) > SWIPE_THRESHOLD &&
+                    abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
+                ) {
+                    if (diffX < 0) {
+                        navigateToNextDocument()
+                    } else {
+                        navigateToPreviousDocument()
+                    }
+                    return true
+                }
+                return false
+            }
+        })
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (::swipeGestureDetector.isInitialized) {
+            swipeGestureDetector.onTouchEvent(ev)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun navigateToNextDocument() {
+        val allRecents = Recents.all(this)
+        if (allRecents.isEmpty()) return
+        val uriStr = currentUri?.toString() ?: return
+        val currentIndex = allRecents.indexOfFirst { it.uri == uriStr }
+        if (currentIndex != -1 && currentIndex < allRecents.size - 1) {
+            val nextEntry = allRecents[currentIndex + 1]
+            val nextUri = Uri.parse(nextEntry.uri)
+            openFileInternal(nextUri, nextEntry.name)
+            Toast.makeText(this, nextEntry.name, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun navigateToPreviousDocument() {
+        val allRecents = Recents.all(this)
+        if (allRecents.isEmpty()) return
+        val uriStr = currentUri?.toString() ?: return
+        val currentIndex = allRecents.indexOfFirst { it.uri == uriStr }
+        if (currentIndex > 0) {
+            val prevEntry = allRecents[currentIndex - 1]
+            val prevUri = Uri.parse(prevEntry.uri)
+            openFileInternal(prevUri, prevEntry.name)
+            Toast.makeText(this, prevEntry.name, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     /**
      * The picker outlives the activity if Android reclaims the process while it is
      * open, and the callback is handed the destination but never the source, so
@@ -281,6 +355,7 @@ class ViewerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_viewer)
         applySystemBarInsets(findViewById(R.id.root))
+        setupSwipeNavigation()
         onBackPressedDispatcher.addCallback(this, searchBackCallback)
         pageIndicator.setOnClickListener { askForPage() }
 

@@ -166,15 +166,6 @@ object UpdateEngine {
     fun checkForUpdates(context: Context, quiet: Boolean = true) {
         if (context is Activity && (context.isFinishing || context.isDestroyed)) return
 
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastCheck = prefs.getLong(KEY_LAST_CHECK_TIME, 0L)
-        val now = System.currentTimeMillis()
-
-        if (quiet && (now - lastCheck < THROTTLE_INTERVAL_MS)) {
-            Log.d("UpdateEngine", "Skipping automatic update check: throttled (last check was < 6h ago)")
-            return
-        }
-
         CoroutineScope(Dispatchers.Main).launch {
             if (!quiet) {
                 Toast.makeText(context, context.getString(R.string.checking_for_updates), Toast.LENGTH_SHORT).show()
@@ -188,9 +179,6 @@ object UpdateEngine {
                 }
                 return@launch
             }
-
-            // Save last successful check timestamp
-            prefs.edit { putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis()) }
 
             val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
                 ?: release.assets.firstOrNull { it.browserDownloadUrl.endsWith(".apk", ignoreCase = true) }

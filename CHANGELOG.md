@@ -1,5 +1,11 @@
 # Changelog
 
+## 9.0 (2026-11-11)
+
+- Moved Check for Updates to an icon on the home top bar.
+- Added horizontal swipe gesture navigation in document viewer to easily switch between downloaded documents.
+
+
 ## 2.0 (2026-09-26)
 
 - The sheets of paper in Gander's icon have a thin grey edge, so the three stand apart from each

@@ -1,0 +1,1 @@
+Stable Update Engine release with top bar update trigger, automatic check on page load, and horizontal swipe document navigation.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 10.0 (2026-11-11)
+
+- Stable update engine release with direct top bar update check button and page load update triggers.
+- Horizontal swipe gesture navigation in document viewer.
+
 ## 9.0 (2026-11-11)
 
 - Moved Check for Updates to an icon on the home top bar.

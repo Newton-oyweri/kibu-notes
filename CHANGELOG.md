@@ -1,5 +1,11 @@
 # Changelog
 
+## 11.0 (2026-11-23)
+
+- Stable Update Engine with GitHub HTML redirect fallback & rate-limit bypass.
+- Top action bar update check button and page-load automatic update trigger.
+- Streamlined document viewer.
+
 ## 10.0 (2026-11-11)
 
 - Stable update engine release with direct top bar update check button and page load update triggers.

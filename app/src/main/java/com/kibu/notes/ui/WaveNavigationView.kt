@@ -16,8 +16,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
-import com.google.android.material.R as MaterialR
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.kibu.notes.R
@@ -40,11 +40,16 @@ class WaveNavigationView @JvmOverloads constructor(
     private var currentTab = TAB_STUDY
 
     private val wavePath = Path()
+    private val topBorderPath = Path()
+
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
+    }
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
     }
 
     private lateinit var studyContainer: LinearLayout
@@ -69,15 +74,20 @@ class WaveNavigationView @JvmOverloads constructor(
     private fun dpToPx(dp: Float): Float = dp * density
 
     private fun setupViews() {
-        val primaryColor = MaterialColors.getColor(this, MaterialR.attr.colorPrimary, Color.BLUE)
-        val surfaceColor = MaterialColors.getColor(this, MaterialR.attr.colorSurface, Color.WHITE)
-        val onSurfaceVariant = MaterialColors.getColor(this, MaterialR.attr.colorOnSurfaceVariant, Color.GRAY)
+        val primaryColor = MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary, "#003366".toColorInt())
+        val surfaceColor = MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface, Color.WHITE)
+        val onSurfaceVariant = MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant, "#44474F".toColorInt())
 
         backgroundPaint.color = surfaceColor
 
-        // Subtle translucent shadow color
+        // Translucent shadow behind wave container
         val shadowColor = ContextCompat.getColor(context, R.color.wave_shadow_color)
         shadowPaint.color = shadowColor
+
+        // Crisp Kibu-blue stroke along the upper mountain boundary
+        strokePaint.color = primaryColor
+        strokePaint.strokeWidth = dpToPx(2.5f)
+        strokePaint.strokeCap = Paint.Cap.ROUND
 
         // 1. Study Container (Left)
         studyIcon = ImageView(context).apply {
@@ -90,10 +100,13 @@ class WaveNavigationView @JvmOverloads constructor(
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
             setTextColor(primaryColor)
+            setSingleLine(true)
+            maxLines = 1
+            ellipsize = null
             setPadding(0, (2 * density).toInt(), 0, 0)
         }
         studyIndicator = View(context).apply {
-            layoutParams = LinearLayout.LayoutParams((16 * density).toInt(), (3 * density).toInt()).apply {
+            layoutParams = LinearLayout.LayoutParams((18 * density).toInt(), (3 * density).toInt()).apply {
                 topMargin = (3 * density).toInt()
             }
             setBackgroundResource(R.drawable.shape_active_indicator)
@@ -108,7 +121,7 @@ class WaveNavigationView @JvmOverloads constructor(
             val outValue = TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
             setBackgroundResource(outValue.resourceId)
-            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
+            setPadding((16 * density).toInt(), (6 * density).toInt(), (16 * density).toInt(), (6 * density).toInt())
 
             addView(studyIcon)
             addView(studyLabel)
@@ -133,10 +146,13 @@ class WaveNavigationView @JvmOverloads constructor(
             textSize = 12f
             setTypeface(null, Typeface.NORMAL)
             setTextColor(onSurfaceVariant)
+            setSingleLine(true)
+            maxLines = 1
+            ellipsize = null
             setPadding(0, (2 * density).toInt(), 0, 0)
         }
         trendsIndicator = View(context).apply {
-            layoutParams = LinearLayout.LayoutParams((16 * density).toInt(), (3 * density).toInt()).apply {
+            layoutParams = LinearLayout.LayoutParams((18 * density).toInt(), (3 * density).toInt()).apply {
                 topMargin = (3 * density).toInt()
             }
             setBackgroundResource(R.drawable.shape_active_indicator)
@@ -151,7 +167,7 @@ class WaveNavigationView @JvmOverloads constructor(
             val outValue = TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
             setBackgroundResource(outValue.resourceId)
-            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
+            setPadding((16 * density).toInt(), (6 * density).toInt(), (16 * density).toInt(), (6 * density).toInt())
 
             addView(trendsIcon)
             addView(trendsLabel)
@@ -167,19 +183,19 @@ class WaveNavigationView @JvmOverloads constructor(
 
         // 3. Centre Files Button
         val filesIcon = ImageView(context).apply {
-            layoutParams = LayoutParams((26 * density).toInt(), (26 * density).toInt(), Gravity.CENTER)
+            layoutParams = LayoutParams((28 * density).toInt(), (28 * density).toInt(), Gravity.CENTER)
             setImageResource(R.drawable.ic_files)
         }
 
         filesCardBtn = MaterialCardView(context).apply {
-            val size = (54 * density).toInt()
+            val size = (58 * density).toInt()
             layoutParams = LayoutParams(size, size).apply {
                 gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
             }
             radius = size / 2f
-            cardElevation = (6 * density)
+            cardElevation = (8 * density)
             setCardBackgroundColor(ColorStateList.valueOf(primaryColor))
-            strokeWidth = (2 * density).toInt()
+            strokeWidth = (2.5f * density).toInt()
             setStrokeColor(ColorStateList.valueOf(surfaceColor))
             isClickable = true
             isFocusable = true
@@ -190,116 +206,119 @@ class WaveNavigationView @JvmOverloads constructor(
             }
         }
 
-        // Position items in FrameLayout
-        val leftLayoutParams = LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.START or Gravity.BOTTOM
-            leftMargin = (28 * density).toInt()
-            bottomMargin = (8 * density).toInt()
-        }
-
-        val rightLayoutParams = LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.END or Gravity.BOTTOM
-            rightMargin = (28 * density).toInt()
-            bottomMargin = (8 * density).toInt()
-        }
-
-        addView(studyContainer, leftLayoutParams)
-        addView(trendsContainer, rightLayoutParams)
+        addView(studyContainer)
+        addView(trendsContainer)
         addView(filesCardBtn)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        val w = (right - left).toFloat()
+        val h = (bottom - top).toFloat()
+
+        if (w <= 0 || h <= 0) return
+
+        val baselineY = dpToPx(38f)
+
+        // Center files button at top peak
+        val filesW = filesCardBtn.measuredWidth
+        val filesH = filesCardBtn.measuredHeight
+        val filesLeft = ((w - filesW) / 2f).toInt()
+        val filesTop = dpToPx(2f).toInt()
+        filesCardBtn.layout(filesLeft, filesTop, filesLeft + filesW, filesTop + filesH)
+
+        // Position Study Container on Left Half
+        val studyW = studyContainer.measuredWidth
+        val studyH = studyContainer.measuredHeight
+        val studyLeft = ((w * 0.22f) - (studyW / 2f)).coerceAtLeast(dpToPx(8f)).toInt()
+        val studyTop = (baselineY + (h - baselineY - studyH) / 2f).toInt()
+        studyContainer.layout(studyLeft, studyTop, studyLeft + studyW, studyTop + studyH)
+
+        // Position Trends Container on Right Half
+        val trendsW = trendsContainer.measuredWidth
+        val trendsH = trendsContainer.measuredHeight
+        val trendsLeft = ((w * 0.78f) - (trendsW / 2f)).coerceAtMost(w - trendsW - dpToPx(8f)).toInt()
+        val trendsTop = (baselineY + (h - baselineY - trendsH) / 2f).toInt()
+        trendsContainer.layout(trendsLeft, trendsTop, trendsLeft + trendsW, trendsTop + trendsH)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        buildWavePath(w.toFloat(), h.toFloat())
-
-        // Adjust filesCardBtn top position relative to wave peak
-        val peakY = dpToPx(2f)
-        val filesLp = filesCardBtn.layoutParams as LayoutParams
-        filesLp.topMargin = peakY.toInt()
-        filesCardBtn.layoutParams = filesLp
+        buildWavePaths(w.toFloat(), h.toFloat())
     }
 
-    private fun buildWavePath(w: Float, h: Float) {
-        val baselineY = dpToPx(20f)
-        val peakY = dpToPx(2f)
-        val waveWidth = dpToPx(130f)
-        val cornerRadius = dpToPx(20f)
+    private fun buildWavePaths(w: Float, h: Float) {
+        val baselineY = dpToPx(38f)
+        val peakY = dpToPx(4f)
+        val waveWidth = dpToPx(140f)
+        val cornerRadius = dpToPx(22f)
 
         val centerX = w / 2f
         val startWaveX = centerX - waveWidth / 2f
         val endWaveX = centerX + waveWidth / 2f
 
         wavePath.reset()
+        topBorderPath.reset()
 
-        // Top-left start
+        // 1. Top-left start
         wavePath.moveTo(cornerRadius, baselineY)
+        topBorderPath.moveTo(cornerRadius, baselineY)
 
-        // Line to wave start
+        // 2. Line to start of wave
         wavePath.lineTo(startWaveX, baselineY)
+        topBorderPath.lineTo(startWaveX, baselineY)
 
-        // Wave curve UP to peak
-        val c1x = startWaveX + waveWidth * 0.28f
-        val c1y = baselineY
+        // 3. Wave curve UP to prominent mountain peak
+        val c1x = startWaveX + waveWidth * 0.25f
+        val c1y = baselineY + dpToPx(4f)
         val c2x = centerX - waveWidth * 0.22f
         val c2y = peakY
         wavePath.cubicTo(c1x, c1y, c2x, c2y, centerX, peakY)
+        topBorderPath.cubicTo(c1x, c1y, c2x, c2y, centerX, peakY)
 
-        // Wave curve DOWN to wave end
+        // 4. Wave curve DOWN from mountain peak to end of wave
         val c3x = centerX + waveWidth * 0.22f
         val c3y = peakY
-        val c4x = endWaveX - waveWidth * 0.28f
-        val c4y = baselineY
+        val c4x = endWaveX - waveWidth * 0.25f
+        val c4y = baselineY + dpToPx(4f)
         wavePath.cubicTo(c3x, c3y, c4x, c4y, endWaveX, baselineY)
+        topBorderPath.cubicTo(c3x, c3y, c4x, c4y, endWaveX, baselineY)
 
-        // Line to top-right
+        // 5. Line to top-right
         wavePath.lineTo(w - cornerRadius, baselineY)
+        topBorderPath.lineTo(w - cornerRadius, baselineY)
 
-        // Top-right corner
+        // 6. Complete closed path for background fill
         wavePath.quadTo(w, baselineY, w, baselineY + cornerRadius)
-
-        // Right edge down
         wavePath.lineTo(w, h - cornerRadius)
-
-        // Bottom-right corner
         wavePath.quadTo(w, h, w - cornerRadius, h)
-
-        // Bottom edge left
         wavePath.lineTo(cornerRadius, h)
-
-        // Bottom-left corner
         wavePath.quadTo(0f, h, 0f, h - cornerRadius)
-
-        // Left edge up
         wavePath.lineTo(0f, baselineY + cornerRadius)
-
-        // Top-left corner
         wavePath.quadTo(0f, baselineY, cornerRadius, baselineY)
-
         wavePath.close()
     }
 
     override fun onDraw(canvas: Canvas) {
         // Draw soft drop shadow behind wave background
-        canvas.withTranslation(y = dpToPx(2f)) {
+        canvas.withTranslation(y = dpToPx(3f)) {
             drawPath(wavePath, shadowPaint)
         }
 
         // Draw main wave background
         canvas.drawPath(wavePath, backgroundPaint)
+
+        // Draw crisp Kibu-blue upper mountain boundary outline
+        canvas.drawPath(topBorderPath, strokePaint)
+
         super.onDraw(canvas)
     }
 
     fun setSelectedTab(tab: Int) {
         currentTab = tab
 
-        val primaryColor = MaterialColors.getColor(this, MaterialR.attr.colorPrimary, Color.BLUE)
-        val onSurfaceVariant = MaterialColors.getColor(this, MaterialR.attr.colorOnSurfaceVariant, Color.GRAY)
+        val primaryColor = MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary, "#003366".toColorInt())
+        val onSurfaceVariant = MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant, "#44474F".toColorInt())
 
         if (tab == TAB_STUDY) {
             studyIcon.setColorFilter(primaryColor)

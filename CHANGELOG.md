@@ -1,5 +1,10 @@
 # Changelog
 
+## 12.0 (2026-11-23)
+
+- Updated app theme and enhanced visual styling.
+- Expanded device compatibility down to Android 7.0 (API 24) with Java 8+ desugaring.
+
 ## 11.0 (2026-11-23)
 
 - Stable Update Engine with GitHub HTML redirect fallback & rate-limit bypass.

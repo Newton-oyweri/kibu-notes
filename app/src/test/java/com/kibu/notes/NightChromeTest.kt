@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -48,6 +49,7 @@ class NightChromeTest {
         FixtureProvider.install()
         Thumbs.resetForTests()
         Settings.setNight(context, false)
+        Settings.setAppDarkTheme(context, false)
     }
 
     @After
@@ -144,7 +146,9 @@ class NightChromeTest {
     }
 
     @Test
+    @Config(qualifiers = "notnight")
     fun withNightModeOffAPdfOpensAsThePhoneHasIt() {
+        Settings.setAppDarkTheme(context, false)
         val parts = open("six-pages.pdf").parts()
 
         assertThat(parts.toolbar).isEqualTo(context.color(R.color.gander_surface))
@@ -166,7 +170,9 @@ class NightChromeTest {
     }
 
     @Test
+    @Config(qualifiers = "notnight")
     fun turningItOffPutsEveryPartBackAsItWas() {
+        Settings.setAppDarkTheme(context, false)
         val viewer = open("six-pages.pdf")
         val asPhone = viewer.parts()
         val chrome = NightChrome(viewer)
@@ -258,7 +264,9 @@ class NightChromeTest {
     }
 
     @Test
+    @Config(qualifiers = "notnight")
     fun withNightModeOffGoToPageIsAsThePhoneHasIt() {
+        Settings.setAppDarkTheme(context, false)
         val light = Seen(
             box = context.color(R.color.gander_surface_container_high),
             title = context.color(R.color.gander_on_surface),
@@ -272,7 +280,9 @@ class NightChromeTest {
      * light, because making a dialog put the night theme's resources back to day.
      */
     @Test
+    @Config(qualifiers = "notnight")
     fun everyDialogOverAPageInNightModeIsDarkNotOnlyTheFirst() {
+        Settings.setAppDarkTheme(context, false)
         Settings.setNight(context, true)
         val dark = asDarkPhone()
         val viewer = open("six-pages.pdf")

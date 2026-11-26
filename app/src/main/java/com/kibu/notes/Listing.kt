@@ -94,9 +94,9 @@ internal val ZIP_BADGE = "ZIP" to DIR_COLOR
 /**
  * The brand accent, and the one badge that is an action rather than a file type.
  *
- * Kibabii Green (#006C35), pinned to the light tone so it stays 6.71:1 in both themes.
+ * Kibabii University Deep Navy Blue (#003366).
  */
-internal val ADD_COLOR = 0xFF006C35.toInt()
+internal val ADD_COLOR = 0xFF003366.toInt()
 
 /** The two or three letters, and the colour behind them, for a file. */
 internal fun badgeFor(name: String, mime: String?): Pair<String, Int> {

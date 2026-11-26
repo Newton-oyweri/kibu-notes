@@ -1,5 +1,9 @@
 # Changelog
 
+## 13.0 (2026-11-23)
+
+- Replaced custom wave navigation with a clean, standard flat bottom navigation bar.
+
 ## 12.0 (2026-11-23)
 
 - Updated app theme and enhanced visual styling.

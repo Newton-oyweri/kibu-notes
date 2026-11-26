@@ -50,8 +50,6 @@
     <!-- Background behind audio player track -->
     <color name="audio_backdrop">#FF0D141C</color>
 
-    <!-- Wave navigation shadow -->
-    <color name="wave_shadow_color">#26003366</color>
 
     <!-- Launcher background -->
     <color name="ic_launcher_background">#FAFDF7</color>

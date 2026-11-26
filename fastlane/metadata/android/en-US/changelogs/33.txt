@@ -1,0 +1,1 @@
+Replaced custom wave navigation with a clean, standard flat bottom navigation bar.

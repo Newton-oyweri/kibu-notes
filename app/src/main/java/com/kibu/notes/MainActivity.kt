@@ -75,7 +75,7 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
-import com.kibu.notes.ui.WaveNavigationView
+import com.kibu.notes.ui.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var list: RecyclerView
     internal lateinit var myUnitsView: View
     private lateinit var myUnitsContainer: LinearLayout
-    private lateinit var waveBottomNav: WaveNavigationView
+    private lateinit var bottomNav: BottomNavigationView
     private lateinit var tabLayout: TabLayout
     lateinit var viewPager: ViewPager2
     internal val recentsAdapter = RowAdapter()
@@ -190,11 +190,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            findViewById<View>(R.id.root).setPadding(bars.left, bars.top, bars.right, 0)
+            bottomNav.setPadding(0, 0, 0, bars.bottom)
+            val bottomContentPadding = (64 * resources.displayMetrics.density).toInt() + bars.bottom
+            myUnitsContainer.setPadding(0, 0, 0, bottomContentPadding)
+            recentsList.setPadding(0, 0, 0, bottomContentPadding)
+            foldersList.setPadding(0, 0, 0, bottomContentPadding)
+            list.setPadding(0, 0, 0, bottomContentPadding)
             WindowInsetsCompat.CONSUMED
         }
 
@@ -328,14 +334,14 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
-        waveBottomNav = findViewById(R.id.waveBottomNav)
-        waveBottomNav.onStudySelected = {
+        bottomNav = findViewById(R.id.bottomNav)
+        bottomNav.onStudySelected = {
             viewPager.currentItem = 0
         }
-        waveBottomNav.onFilesSelected = {
+        bottomNav.onFilesSelected = {
             openDocument.launch(arrayOf("*/*"))
         }
-        waveBottomNav.onTrendsSelected = {
+        bottomNav.onTrendsSelected = {
             viewPager.currentItem = 1
         }
 
@@ -343,9 +349,9 @@ class MainActivity : AppCompatActivity() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 if (position == 0) {
-                    waveBottomNav.setSelectedTab(WaveNavigationView.TAB_STUDY)
+                    bottomNav.setSelectedTab(BottomNavigationView.TAB_STUDY)
                 } else {
-                    waveBottomNav.setSelectedTab(WaveNavigationView.TAB_TRENDS)
+                    bottomNav.setSelectedTab(BottomNavigationView.TAB_TRENDS)
                 }
             }
         })
@@ -603,7 +609,7 @@ class MainActivity : AppCompatActivity() {
             tabLayout.visibility = View.GONE
             viewPager.visibility = View.GONE
             list.visibility = View.GONE
-            waveBottomNav.visibility = View.GONE
+            bottomNav.visibility = View.GONE
             showCourseSelectorIfNeeded()
             return
         }
@@ -619,14 +625,14 @@ class MainActivity : AppCompatActivity() {
             tabLayout.visibility = View.VISIBLE
             viewPager.visibility = View.VISIBLE
             list.visibility = View.GONE
-            waveBottomNav.visibility = View.VISIBLE
+            bottomNav.visibility = View.VISIBLE
             loadMyUnits()
         } else {
             selectedProgramCard.visibility = View.GONE
             tabLayout.visibility = View.GONE
             viewPager.visibility = View.GONE
             list.visibility = View.VISIBLE
-            waveBottomNav.visibility = View.VISIBLE
+            bottomNav.visibility = View.VISIBLE
         }
 
         val token = ++renderToken

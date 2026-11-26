@@ -24,8 +24,8 @@ android {
         applicationId = "com.kibu.notes"
         minSdk = 24
         targetSdk = 36
-        versionCode = 32
-        versionName = "12.0"
+        versionCode = 33
+        versionName = "13.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // A device test that hangs blocks the whole nightly run behind it, and

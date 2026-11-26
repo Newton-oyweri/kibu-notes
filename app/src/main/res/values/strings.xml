@@ -247,4 +247,8 @@
     <string name="allow_install_permission_title">Install Permission Required</string>
     <string name="allow_install_permission_message">To install updates, please allow Kibu Notes to install unknown apps in your phone\'s settings.</string>
     <string name="open_settings">Open Settings</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_study">Study</string>
+    <string name="nav_trends">Trends</string>
 </resources>

@@ -75,6 +75,8 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
+import com.kibu.notes.ui.WaveNavigationView
+
 class MainActivity : AppCompatActivity() {
 
     /**
@@ -95,7 +97,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var list: RecyclerView
     internal lateinit var myUnitsView: View
     private lateinit var myUnitsContainer: LinearLayout
-    private lateinit var fab: ExtendedFloatingActionButton
+    private lateinit var waveBottomNav: WaveNavigationView
     private lateinit var tabLayout: TabLayout
     lateinit var viewPager: ViewPager2
     internal val recentsAdapter = RowAdapter()
@@ -326,9 +328,27 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
-        fab = findViewById(R.id.openFab)
-        val openFile = View.OnClickListener { openDocument.launch(arrayOf("*/*")) }
-        fab.setOnClickListener(openFile)
+        waveBottomNav = findViewById(R.id.waveBottomNav)
+        waveBottomNav.onStudySelected = {
+            viewPager.currentItem = 0
+        }
+        waveBottomNav.onFilesSelected = {
+            openDocument.launch(arrayOf("*/*"))
+        }
+        waveBottomNav.onTrendsSelected = {
+            viewPager.currentItem = 1
+        }
+
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                if (position == 0) {
+                    waveBottomNav.setSelectedTab(WaveNavigationView.TAB_STUDY)
+                } else {
+                    waveBottomNav.setSelectedTab(WaveNavigationView.TAB_TRENDS)
+                }
+            }
+        })
 
         selectedProgramCard = findViewById(R.id.selectedProgramCard)
         selectedProgramText = findViewById(R.id.selectedProgramText)
@@ -583,7 +603,7 @@ class MainActivity : AppCompatActivity() {
             tabLayout.visibility = View.GONE
             viewPager.visibility = View.GONE
             list.visibility = View.GONE
-            fab.hide()
+            waveBottomNav.visibility = View.GONE
             showCourseSelectorIfNeeded()
             return
         }
@@ -599,14 +619,14 @@ class MainActivity : AppCompatActivity() {
             tabLayout.visibility = View.VISIBLE
             viewPager.visibility = View.VISIBLE
             list.visibility = View.GONE
-            fab.show()
+            waveBottomNav.visibility = View.VISIBLE
             loadMyUnits()
         } else {
             selectedProgramCard.visibility = View.GONE
             tabLayout.visibility = View.GONE
             viewPager.visibility = View.GONE
             list.visibility = View.VISIBLE
-            fab.show()
+            waveBottomNav.visibility = View.VISIBLE
         }
 
         val token = ++renderToken
